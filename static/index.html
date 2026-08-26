@@ -10,7 +10,7 @@
   content="width=device-width, initial-scale=1.0"
 >
 
-<title>AI Thai Dub V1.9</title>
+<title>AI Thai Dub V2.0</title>
 
 <style>
 
@@ -49,7 +49,7 @@ body {
 
   text-align: center;
 
-  font-size: 36px;
+  font-size: 34px;
 
   font-weight: 800;
 
@@ -69,12 +69,12 @@ body {
 
   background: white;
 
-  border-radius: 22px;
+  border-radius: 20px;
 
   padding: 22px;
 
   box-shadow:
-    0 5px 25px rgba(0,0,0,.07);
+    0 4px 20px rgba(0,0,0,.07);
 
   margin-bottom: 18px;
 }
@@ -83,7 +83,7 @@ h2 {
 
   margin-top: 0;
 
-  font-size: 22px;
+  font-size: 21px;
 }
 
 .upload {
@@ -91,7 +91,7 @@ h2 {
   border:
     2px dashed #bbb;
 
-  border-radius: 18px;
+  border-radius: 16px;
 
   padding: 28px 15px;
 
@@ -104,7 +104,32 @@ input[type="file"] {
 
   width: 100%;
 
-  margin-top: 18px;
+  margin-top: 15px;
+}
+
+textarea {
+
+  width: 100%;
+
+  min-height: 180px;
+
+  resize: vertical;
+
+  border: 0;
+
+  border-radius: 14px;
+
+  padding: 16px;
+
+  background: #f7f7f7;
+
+  font-family: inherit;
+
+  font-size: 16px;
+
+  line-height: 1.7;
+
+  outline: none;
 }
 
 button {
@@ -113,11 +138,11 @@ button {
 
   border: 0;
 
-  border-radius: 15px;
+  border-radius: 14px;
 
-  padding: 16px;
+  padding: 15px;
 
-  margin-top: 14px;
+  margin-top: 12px;
 
   font-size: 17px;
 
@@ -126,30 +151,30 @@ button {
   background: #007aff;
 
   color: white;
+}
 
-  cursor: pointer;
+button.secondary {
+
+  background: #34c759;
+}
+
+button.dark {
+
+  background: #1d1d1f;
 }
 
 button:disabled {
 
   background: #aaa;
-
-}
-
-.secondary {
-
-  background: #e9e9ed;
-
-  color: #1d1d1f;
 }
 
 .status {
 
   margin-top: 15px;
 
-  padding: 15px;
+  padding: 14px;
 
-  border-radius: 14px;
+  border-radius: 12px;
 
   background: #f1f1f1;
 
@@ -158,75 +183,25 @@ button:disabled {
   white-space: pre-wrap;
 }
 
-.status.success {
+.success {
 
-  background: #eaf8ef;
+  background: #eaf7ed;
 
-  color: #20733a;
+  color: #24733b;
 }
 
-.status.error {
-
-  background: #fff0f0;
-
-  color: #b42318;
-}
-
-.file-info {
-
-  margin-top: 15px;
-
-  padding: 14px;
-
-  border-radius: 14px;
-
-  background: #f7f7f7;
+.label {
 
   font-size: 14px;
 
-  white-space: pre-wrap;
+  color: #777;
+
+  margin-bottom: 8px;
 }
 
-.transcript {
+.steps {
 
-  margin-top: 15px;
-
-  padding: 18px;
-
-  border-radius: 14px;
-
-  background: #f7f7f7;
-
-  line-height: 1.8;
-
-  font-size: 17px;
-
-  white-space: pre-wrap;
-
-  min-height: 150px;
-}
-
-.actions {
-
-  display: grid;
-
-  grid-template-columns: 1fr 1fr;
-
-  gap: 10px;
-
-  margin-top: 10px;
-}
-
-.actions button {
-
-  margin-top: 0;
-}
-
-.steps p {
-
-  margin: 10px 0;
-
-  line-height: 1.6;
+  line-height: 1.9;
 }
 
 .footer {
@@ -256,18 +231,18 @@ AI Thai Dub
 
 
 <div class="subtitle">
-V1.9 — AI ถอดเสียงจากวิดีโอ
+V2.0 — ถอดเสียง → แปลไทย → เตรียมพากย์
 </div>
 
 
-<!-- ================================================= -->
-<!-- UPLOAD -->
-<!-- ================================================= -->
+<!-- =====================================================
+UPLOAD
+===================================================== -->
 
 <div class="card">
 
 <h2>
-🎬 อัปโหลดวิดีโอ
+🎬 1. อัปโหลดวิดีโอ
 </h2>
 
 
@@ -284,12 +259,6 @@ V1.9 — AI ถอดเสียงจากวิดีโอ
   accept="audio/*,video/*"
 >
 
-
-<div
-  id="fileInfo"
-  class="file-info"
-  style="display:none;"
-></div>
 
 </div>
 
@@ -311,120 +280,122 @@ V1.9 — AI ถอดเสียงจากวิดีโอ
 </div>
 
 
-<!-- ================================================= -->
-<!-- TRANSCRIPT -->
-<!-- ================================================= -->
+<!-- =====================================================
+ORIGINAL
+===================================================== -->
 
 <div class="card">
 
 <h2>
-📝 ข้อความต้นฉบับ
+📝 2. ข้อความต้นฉบับ
 </h2>
 
 
-<div
-  id="transcript"
-  class="transcript"
->
-ข้อความที่ AI ถอดเสียงจะแสดงตรงนี้
+<div class="label">
+ตรวจสอบและแก้ข้อความก่อนแปล
 </div>
 
 
-<div class="actions">
+<textarea
+  id="originalText"
+  placeholder="ข้อความที่ AI ถอดเสียงจะแสดงตรงนี้"
+></textarea>
+
 
 <button
-  id="copyBtn"
+  id="translateBtn"
   class="secondary"
 >
-📋 คัดลอก
+🇹🇭 แปลและเรียบเรียงเป็นไทย
 </button>
+
+</div>
+
+
+<!-- =====================================================
+THAI
+===================================================== -->
+
+<div class="card">
+
+<h2>
+🇹🇭 3. บทพากย์ภาษาไทย
+</h2>
+
+
+<div class="label">
+แก้ข้อความไทยให้เหมาะกับเสียงพากย์ได้
+</div>
+
+
+<textarea
+  id="thaiText"
+  placeholder="ข้อความภาษาไทยจะปรากฏตรงนี้"
+></textarea>
 
 
 <button
   id="downloadBtn"
-  class="secondary"
+  class="dark"
 >
-⬇️ ดาวน์โหลด TXT
+📄 ดาวน์โหลดบทพากย์ .TXT
 </button>
 
 </div>
 
 
-<button
-  id="newBtn"
-  class="secondary"
->
-🔄 เริ่มใหม่
-</button>
+<!-- =====================================================
+NEXT
+===================================================== -->
 
-</div>
-
-
-<!-- ================================================= -->
-<!-- STEPS -->
-<!-- ================================================= -->
-
-<div class="card steps">
+<div class="card">
 
 <h2>
-🇹🇭 ขั้นตอน V1.9
+🎙️ 4. ขั้นตอนถัดไป
 </h2>
 
 
-<p>
-1. 🎬 เลือกวิดีโอ
-</p>
-
+<div class="steps">
 
 <p>
-2. ⬆️ อัปโหลดขึ้น Server
+✅ ถอดเสียง
 </p>
-
 
 <p>
-3. 🎧 FFmpeg แยกเสียง
+✅ แปลภาษา
 </p>
-
 
 <p>
-4. 🤖 Whisper ถอดเสียงภาษาไทย
+✅ แก้บทพากย์
 </p>
-
 
 <p>
-5. 📝 แสดงข้อความ
+🔜 สร้างเสียงพากย์ AI
 </p>
-
 
 <p>
-6. 📋 คัดลอกข้อความ
+🔜 เลือกเสียงผู้ชาย / ผู้หญิง
 </p>
-
 
 <p>
-7. ⬇️ ดาวน์โหลด TXT
+🔜 ปรับความเร็วเสียง
 </p>
-
 
 <p>
-8. 🔜 แปลภาษา
+🔜 รวมเสียงกลับเข้าวิดีโอ
 </p>
-
 
 <p>
-9. 🔜 สร้างเสียงพากย์
+🔜 ดาวน์โหลด MP4
 </p>
 
-
-<p>
-10. 🔜 รวมเสียงกลับเป็น MP4
-</p>
+</div>
 
 </div>
 
 
 <div class="footer">
-AI Thai Dub V1.9
+AI Thai Dub V2.0
 </div>
 
 
@@ -438,98 +409,39 @@ const fileInput =
     "fileInput"
   );
 
-
 const transcribeBtn =
   document.getElementById(
     "transcribeBtn"
   );
 
-
-const statusBox =
+const translateBtn =
   document.getElementById(
-    "status"
+    "translateBtn"
   );
-
-
-const transcriptBox =
-  document.getElementById(
-    "transcript"
-  );
-
-
-const fileInfo =
-  document.getElementById(
-    "fileInfo"
-  );
-
-
-const copyBtn =
-  document.getElementById(
-    "copyBtn"
-  );
-
 
 const downloadBtn =
   document.getElementById(
     "downloadBtn"
   );
 
-
-const newBtn =
+const statusBox =
   document.getElementById(
-    "newBtn"
+    "status"
+  );
+
+const originalText =
+  document.getElementById(
+    "originalText"
+  );
+
+const thaiText =
+  document.getElementById(
+    "thaiText"
   );
 
 
-let currentTranscript = "";
-
-
 /* =====================================================
-   File selected
-===================================================== */
-
-fileInput.addEventListener(
-  "change",
-  function () {
-
-    const file =
-      fileInput.files[0];
-
-
-    if (!file) {
-
-      fileInfo.style.display =
-        "none";
-
-      return;
-    }
-
-
-    const sizeMB =
-      (
-        file.size /
-        1024 /
-        1024
-      ).toFixed(2);
-
-
-    fileInfo.style.display =
-      "block";
-
-
-    fileInfo.textContent =
-      "📄 " +
-      file.name +
-      "\n\n" +
-      "ขนาด: " +
-      sizeMB +
-      " MB";
-  }
-);
-
-
-/* =====================================================
-   Transcribe
+TRANSCRIBE
 ===================================================== */
 
 transcribeBtn.addEventListener(
@@ -542,11 +454,8 @@ transcribeBtn.addEventListener(
 
     if (!file) {
 
-      statusBox.className =
-        "status error";
-
       statusBox.textContent =
-        "❌ กรุณาเลือกไฟล์ก่อน";
+        "กรุณาเลือกไฟล์ก่อน";
 
       return;
     }
@@ -556,21 +465,25 @@ transcribeBtn.addEventListener(
       true;
 
 
+    translateBtn.disabled =
+      true;
+
+
     statusBox.className =
       "status";
 
 
     statusBox.textContent =
       "⏳ กำลังอัปโหลด...\n\n" +
-      "จากนั้นกำลังแยกเสียงและถอดเสียง\n" +
-      "กรุณารอสักครู่";
+      "🎧 กำลังแยกเสียง\n\n" +
+      "🤖 กำลังถอดเสียง";
 
 
-    transcriptBox.textContent =
-      "🤖 AI กำลังทำงาน...";
+    originalText.value =
+      "";
 
-
-    currentTranscript = "";
+    thaiText.value =
+      "";
 
 
     try {
@@ -593,6 +506,7 @@ transcribeBtn.addEventListener(
             method: "POST",
 
             body: formData
+
           }
         );
 
@@ -604,16 +518,14 @@ transcribeBtn.addEventListener(
       if (!response.ok) {
 
         throw new Error(
-
           data.detail ||
           "เกิดข้อผิดพลาด"
         );
       }
 
 
-      currentTranscript =
-        data.transcript ||
-        "";
+      originalText.value =
+        data.transcript || "";
 
 
       statusBox.className =
@@ -621,44 +533,32 @@ transcribeBtn.addEventListener(
 
 
       statusBox.textContent =
-
         "🎉 ถอดเสียงสำเร็จ!\n\n" +
-
         "ไฟล์: " +
         data.filename +
         "\n\n" +
-
-        "ความยาวเสียง: " +
-        data.audio.duration_seconds +
+        "ความยาว: " +
+        (
+          data.audio?.duration_seconds ||
+          0
+        ) +
         " วินาที";
 
 
-      transcriptBox.textContent =
-
-        currentTranscript ||
-
-        "ไม่พบข้อความเสียงพูด";
+      translateBtn.disabled =
+        false;
 
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
       statusBox.className =
-        "status error";
+        "status";
 
 
       statusBox.textContent =
-        "❌ เกิดข้อผิดพลาด\n\n" +
+        "เกิดข้อผิดพลาด ❌\n\n" +
         error.message;
 
-
-      transcriptBox.textContent =
-        "ไม่สามารถถอดเสียงได้";
-
-
-      currentTranscript =
-        "";
     }
 
 
@@ -670,139 +570,28 @@ transcribeBtn.addEventListener(
 
 
 /* =====================================================
-   Copy
+TRANSLATE
 ===================================================== */
 
-copyBtn.addEventListener(
+translateBtn.addEventListener(
   "click",
   async function () {
 
-    if (!currentTranscript) {
-
-      alert(
-        "ยังไม่มีข้อความให้คัดลอก"
-      );
-
-      return;
-    }
+    const text =
+      originalText.value.trim();
 
 
-    try {
+    if (!text) {
 
-      await navigator.clipboard.writeText(
-        currentTranscript
-      );
-
-
-      copyBtn.textContent =
-        "✅ คัดลอกแล้ว";
-
-
-      setTimeout(
-        function () {
-
-          copyBtn.textContent =
-            "📋 คัดลอก";
-
-        },
-        1500
-      );
-
-
-    } catch (error) {
-
-      alert(
-        "ไม่สามารถคัดลอกข้อความได้"
-      );
-
-    }
-
-  }
-);
-
-
-/* =====================================================
-   Download TXT
-===================================================== */
-
-downloadBtn.addEventListener(
-  "click",
-  function () {
-
-    if (!currentTranscript) {
-
-      alert(
-        "ยังไม่มีข้อความให้ดาวน์โหลด"
-      );
+      statusBox.textContent =
+        "ไม่มีข้อความสำหรับแปล";
 
       return;
     }
 
 
-    const blob =
-      new Blob(
-        [
-          currentTranscript
-        ],
-        {
-          type:
-            "text/plain;charset=utf-8"
-        }
-      );
-
-
-    const url =
-      URL.createObjectURL(
-        blob
-      );
-
-
-    const a =
-      document.createElement(
-        "a"
-      );
-
-
-    a.href = url;
-
-    a.download =
-      "ai-thai-dub-transcript.txt";
-
-
-    document.body.appendChild(a);
-
-    a.click();
-
-    a.remove();
-
-
-    URL.revokeObjectURL(
-      url
-    );
-
-  }
-);
-
-
-/* =====================================================
-   New
-===================================================== */
-
-newBtn.addEventListener(
-  "click",
-  function () {
-
-    fileInput.value =
-      "";
-
-    fileInfo.style.display =
-      "none";
-
-    currentTranscript =
-      "";
-
-    transcriptBox.textContent =
-      "ข้อความที่ AI ถอดเสียงจะแสดงตรงนี้";
+    translateBtn.disabled =
+      true;
 
 
     statusBox.className =
@@ -810,7 +599,207 @@ newBtn.addEventListener(
 
 
     statusBox.textContent =
-      "พร้อมใช้งาน";
+      "⏳ AI กำลังแปลและเรียบเรียง...\n\n" +
+      "🇹🇭 กำลังทำให้ภาษาไทยเป็นธรรมชาติ";
+
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/translate",
+          {
+
+            method: "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json"
+
+            },
+
+            body: JSON.stringify({
+
+              text: text,
+
+              source_language:
+                "auto",
+
+              target_language:
+                "th",
+
+              style:
+                "natural"
+
+            })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.detail ||
+          "แปลภาษาไม่สำเร็จ"
+        );
+      }
+
+
+      thaiText.value =
+        data.translation || "";
+
+
+      statusBox.className =
+        "status success";
+
+
+      statusBox.textContent =
+        "🎉 แปลภาษาเสร็จแล้ว\n\n" +
+        "ตรวจสอบบทพากย์ด้านล่างได้เลย";
+
+
+    } catch (error) {
+
+      statusBox.className =
+        "status";
+
+
+      statusBox.textContent =
+        "เกิดข้อผิดพลาด ❌\n\n" +
+        error.message;
+
+    }
+
+
+    translateBtn.disabled =
+      false;
+
+  }
+);
+
+
+/* =====================================================
+DOWNLOAD TXT
+===================================================== */
+
+downloadBtn.addEventListener(
+  "click",
+  async function () {
+
+    const text =
+      thaiText.value.trim();
+
+
+    if (!text) {
+
+      statusBox.textContent =
+        "ยังไม่มีบทพากย์ภาษาไทย";
+
+      return;
+    }
+
+
+    downloadBtn.disabled =
+      true;
+
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/download-text",
+          {
+
+            method: "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json"
+
+            },
+
+            body: JSON.stringify({
+
+              text: text
+
+            })
+
+          }
+        );
+
+
+      if (!response.ok) {
+
+        const data =
+          await response.json();
+
+        throw new Error(
+          data.detail ||
+          "ดาวน์โหลดไม่สำเร็จ"
+        );
+      }
+
+
+      const blob =
+        await response.blob();
+
+
+      const url =
+        URL.createObjectURL(blob);
+
+
+      const a =
+        document.createElement(
+          "a"
+        );
+
+
+      a.href = url;
+
+      a.download =
+        "thai-dub-script.txt";
+
+
+      document.body.appendChild(a);
+
+      a.click();
+
+      a.remove();
+
+
+      URL.revokeObjectURL(url);
+
+
+      statusBox.className =
+        "status success";
+
+
+      statusBox.textContent =
+        "📄 ดาวน์โหลดบทพากย์สำเร็จแล้ว";
+
+
+    } catch (error) {
+
+      statusBox.className =
+        "status";
+
+
+      statusBox.textContent =
+        "เกิดข้อผิดพลาด ❌\n\n" +
+        error.message;
+
+    }
+
+
+    downloadBtn.disabled =
+      false;
 
   }
 );
