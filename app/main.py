@@ -1,17 +1,7 @@
 from pathlib import Path
 
-from fastapi import (
-    FastAPI,
-    UploadFile,
-    File,
-    HTTPException
-)
-
-from fastapi.responses import (
-    FileResponse,
-    PlainTextResponse
-)
-
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import os
@@ -26,18 +16,23 @@ import re
 # AI Thai Dub V1.9
 # =========================================================
 
+# main.py อยู่ใน:
+# ai-thai-dub/app/main.py
+
 BASE_DIR = Path(__file__).resolve().parent
 
-STATIC_DIR = BASE_DIR / "static"
+# โฟลเดอร์ project:
+# ai-thai-dub/
+PROJECT_DIR = BASE_DIR.parent
+
+# static อยู่ระดับเดียวกับ app:
+# ai-thai-dub/static/
+STATIC_DIR = PROJECT_DIR / "static"
 
 
-WHISPER_BIN = (
-    "/opt/whisper.cpp/build/bin/whisper-cli"
-)
+WHISPER_BIN = "/opt/whisper.cpp/build/bin/whisper-cli"
 
-WHISPER_MODEL = (
-    "/opt/whisper.cpp/models/ggml-tiny.bin"
-)
+WHISPER_MODEL = "/opt/whisper.cpp/models/ggml-tiny.bin"
 
 
 app = FastAPI(
@@ -46,7 +41,7 @@ app = FastAPI(
 
 
 # =========================================================
-# Static Website
+# Static
 # =========================================================
 
 if STATIC_DIR.exists():
@@ -54,7 +49,7 @@ if STATIC_DIR.exists():
     app.mount(
         "/static",
         StaticFiles(
-            directory=STATIC_DIR
+            directory=str(STATIC_DIR)
         ),
         name="static"
     )
@@ -67,19 +62,31 @@ if STATIC_DIR.exists():
 @app.get("/")
 def home():
 
-    index_file = (
-        STATIC_DIR / "index.html"
-    )
+    index_file = STATIC_DIR / "index.html"
+
+    print("=" * 60)
+    print("HOME")
+    print("=" * 60)
+    print("BASE_DIR:", BASE_DIR)
+    print("PROJECT_DIR:", PROJECT_DIR)
+    print("STATIC_DIR:", STATIC_DIR)
+    print("INDEX:", index_file)
+    print("STATIC EXISTS:", STATIC_DIR.exists())
+    print("INDEX EXISTS:", index_file.exists())
 
     if index_file.exists():
 
         return FileResponse(
-            index_file
+            str(index_file)
         )
 
     return {
         "status": "ok",
-        "service": "AI Thai Dub V1.9"
+        "service": "AI Thai Dub V1.9",
+        "error": "index.html not found",
+        "static_dir": str(STATIC_DIR),
+        "static_exists": STATIC_DIR.exists(),
+        "index_exists": index_file.exists()
     }
 
 
@@ -89,6 +96,8 @@ def home():
 
 @app.get("/api/health")
 def health():
+
+    index_file = STATIC_DIR / "index.html"
 
     return {
 
@@ -116,15 +125,12 @@ def health():
             STATIC_DIR.exists(),
 
         "index_exists":
-            (
-                STATIC_DIR /
-                "index.html"
-            ).exists()
+            index_file.exists()
     }
 
 
 # =========================================================
-# WAV information
+# WAV
 # =========================================================
 
 def get_wav_info(
@@ -138,21 +144,13 @@ def get_wav_info(
             "rb"
         ) as wav:
 
-            channels = (
-                wav.getnchannels()
-            )
+            channels = wav.getnchannels()
 
-            sample_width = (
-                wav.getsampwidth()
-            )
+            sample_width = wav.getsampwidth()
 
-            sample_rate = (
-                wav.getframerate()
-            )
+            sample_rate = wav.getframerate()
 
-            frames = (
-                wav.getnframes()
-            )
+            frames = wav.getnframes()
 
         duration = (
             frames / sample_rate
@@ -190,12 +188,10 @@ def get_wav_info(
 
 
 # =========================================================
-# Clean Whisper Text
+# Clean Whisper
 # =========================================================
 
-def clean_transcript(
-    text
-):
+def clean_transcript(text):
 
     if not text:
 
@@ -210,50 +206,30 @@ def clean_transcript(
         if not line:
             continue
 
-        # Whisper system logs
-        if line.startswith(
-            "whisper_"
-        ):
+        if line.startswith("whisper_"):
             continue
 
-        if line.startswith(
-            "system_info:"
-        ):
+        if line.startswith("system_info:"):
             continue
 
-        if line.startswith(
-            "ggml_"
-        ):
+        if line.startswith("ggml_"):
             continue
 
-        if line.startswith(
-            "main:"
-        ):
+        if line.startswith("main:"):
             continue
 
-        if line.startswith(
-            "output_"
-        ):
+        if line.startswith("output_"):
             continue
 
         lines.append(line)
 
-
-    text = "\n".join(
-        lines
-    ).strip()
-
-
-    # -----------------------------------------------------
-    # Remove duplicated blank lines
-    # -----------------------------------------------------
+    text = "\n".join(lines).strip()
 
     text = re.sub(
         r"\n{3,}",
         "\n\n",
         text
     )
-
 
     return text.strip()
 
@@ -268,10 +244,6 @@ async def transcribe(
     file: UploadFile = File(...)
 ):
 
-    # =====================================================
-    # File validation
-    # =====================================================
-
     if not file.filename:
 
         raise HTTPException(
@@ -280,11 +252,9 @@ async def transcribe(
         )
 
 
-    suffix = (
-        Path(
-            file.filename
-        ).suffix.lower()
-    )
+    suffix = Path(
+        file.filename
+    ).suffix.lower()
 
 
     allowed_extensions = {
@@ -314,16 +284,15 @@ async def transcribe(
 
             detail=(
                 "ไฟล์ประเภทนี้ยังไม่รองรับ\n\n"
-                "รองรับ:\n"
-                "MP4, MOV, M4V, AVI, MKV, "
-                "WEBM, MP3, WAV, M4A, "
-                "AAC, FLAC และ OGG"
+                "รองรับ MP4, MOV, M4V, AVI, MKV, "
+                "WEBM, MP3, WAV, M4A, AAC, "
+                "FLAC และ OGG"
             )
         )
 
 
     # =====================================================
-    # Check dependencies
+    # Dependencies
     # =====================================================
 
     if not os.path.exists(
@@ -369,7 +338,7 @@ async def transcribe(
 
 
     # =====================================================
-    # Temporary directory
+    # Temporary workspace
     # =====================================================
 
     try:
@@ -378,12 +347,10 @@ async def transcribe(
 
             temp_dir = Path(temp)
 
-
             input_file = (
                 temp_dir /
                 f"input{suffix}"
             )
-
 
             audio_file = (
                 temp_dir /
@@ -409,9 +376,7 @@ async def transcribe(
                     if not chunk:
                         break
 
-                    output.write(
-                        chunk
-                    )
+                    output.write(chunk)
 
 
             input_size = (
@@ -422,26 +387,9 @@ async def transcribe(
             if input_size <= 0:
 
                 raise HTTPException(
-
                     status_code=400,
-
                     detail="ไฟล์ว่าง"
                 )
-
-
-            print("=" * 60)
-            print("UPLOAD")
-            print("=" * 60)
-
-            print(
-                "Filename:",
-                file.filename
-            )
-
-            print(
-                "Size:",
-                input_size
-            )
 
 
             # =================================================
@@ -472,11 +420,6 @@ async def transcribe(
             ]
 
 
-            print("=" * 60)
-            print("FFMPEG")
-            print("=" * 60)
-
-
             ffmpeg_result = subprocess.run(
 
                 ffmpeg_command,
@@ -491,14 +434,7 @@ async def transcribe(
             )
 
 
-            if (
-                ffmpeg_result.returncode
-                != 0
-            ):
-
-                print(
-                    ffmpeg_result.stderr
-                )
+            if ffmpeg_result.returncode != 0:
 
                 raise HTTPException(
 
@@ -513,10 +449,6 @@ async def transcribe(
                 )
 
 
-            # =================================================
-            # Validate audio
-            # =================================================
-
             if not audio_file.exists():
 
                 raise HTTPException(
@@ -529,56 +461,36 @@ async def transcribe(
                 )
 
 
+            # =================================================
+            # WAV
+            # =================================================
+
             wav_info = get_wav_info(
                 audio_file
             )
 
 
-            print(
-                "WAV:",
-                wav_info
-            )
-
-
-            if wav_info[
-                "channels"
-            ] != 1:
+            if wav_info["channels"] != 1:
 
                 raise HTTPException(
-
                     status_code=500,
-
-                    detail=(
-                        "WAV ไม่ใช่ Mono"
-                    )
+                    detail="WAV ไม่ใช่ Mono"
                 )
 
 
-            if wav_info[
-                "sample_rate"
-            ] != 16000:
+            if wav_info["sample_rate"] != 16000:
 
                 raise HTTPException(
-
                     status_code=500,
-
-                    detail=(
-                        "WAV ไม่ใช่ 16000 Hz"
-                    )
+                    detail="WAV ไม่ใช่ 16000 Hz"
                 )
 
 
-            if wav_info[
-                "sample_width"
-            ] != 2:
+            if wav_info["sample_width"] != 2:
 
                 raise HTTPException(
-
                     status_code=500,
-
-                    detail=(
-                        "WAV ไม่ใช่ 16-bit"
-                    )
+                    detail="WAV ไม่ใช่ 16-bit"
                 )
 
 
@@ -606,17 +518,6 @@ async def transcribe(
             ]
 
 
-            print("=" * 60)
-            print("WHISPER")
-            print("=" * 60)
-
-            print(
-                " ".join(
-                    whisper_command
-                )
-            )
-
-
             whisper_result = subprocess.run(
 
                 whisper_command,
@@ -631,36 +532,7 @@ async def transcribe(
             )
 
 
-            print(
-                "Return code:",
-                whisper_result.returncode
-            )
-
-
-            print(
-                "STDOUT:",
-                whisper_result.stdout[
-                    -10000:
-                ]
-            )
-
-
-            print(
-                "STDERR:",
-                whisper_result.stderr[
-                    -10000:
-                ]
-            )
-
-
-            # =================================================
-            # Whisper error
-            # =================================================
-
-            if (
-                whisper_result.returncode
-                != 0
-            ):
+            if whisper_result.returncode != 0:
 
                 raise HTTPException(
 
@@ -690,12 +562,7 @@ async def transcribe(
                 )
 
 
-            # =================================================
-            # Clean transcript
-            # =================================================
-
             transcript = clean_transcript(
-
                 whisper_result.stdout
             )
 
@@ -705,15 +572,6 @@ async def transcribe(
                 transcript = (
                     "ไม่พบข้อความเสียงพูด"
                 )
-
-
-            print("=" * 60)
-            print("TRANSCRIPTION COMPLETE")
-            print("=" * 60)
-
-            print(
-                transcript
-            )
 
 
             # =================================================
@@ -791,34 +649,3 @@ async def transcribe(
                 + repr(e)
             )
         )
-
-
-# =========================================================
-# Download transcript
-# =========================================================
-
-@app.post(
-    "/api/download-text"
-)
-async def download_text(
-    file: UploadFile = File(...)
-):
-
-    content = await file.read()
-
-    if not content:
-
-        raise HTTPException(
-            status_code=400,
-            detail="ไม่มีข้อความ"
-        )
-
-
-    return PlainTextResponse(
-        content.decode(
-            "utf-8",
-            errors="replace"
-        ),
-
-        media_type="text/plain"
-    )
