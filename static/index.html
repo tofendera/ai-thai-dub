@@ -7,15 +7,24 @@
 
 <meta
   name="viewport"
-  content="width=device-width, initial-scale=1.0"
+  content="width=device-width, initial-scale=1.0, viewport-fit=cover"
 >
 
-<title>AI Thai Dub V1.7</title>
+<meta
+  name="theme-color"
+  content="#f5f5f7"
+>
+
+<title>AI Thai Dub V1.8</title>
 
 <style>
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -38,22 +47,27 @@ body {
 
   width: 100%;
 
-  max-width: 520px;
+  max-width: 540px;
 
   margin: auto;
 
-  padding: 24px 18px 50px;
+  padding:
+    24px
+    18px
+    60px;
 }
 
 .logo {
 
   text-align: center;
 
-  font-size: 34px;
+  font-size: 36px;
 
   font-weight: 800;
 
-  margin-top: 20px;
+  margin-top: 18px;
+
+  letter-spacing: -1px;
 }
 
 .subtitle {
@@ -62,26 +76,35 @@ body {
 
   color: #777;
 
-  margin: 8px 0 28px;
+  margin:
+    8px
+    0
+    28px;
+
+  font-size: 16px;
 }
 
 .card {
 
-  background: white;
+  background: #fff;
 
-  border-radius: 20px;
+  border-radius: 22px;
 
   padding: 22px;
 
   box-shadow:
-    0 4px 20px rgba(0,0,0,.07);
+    0 5px 24px
+    rgba(0,0,0,.07);
 
   margin-bottom: 18px;
 }
 
 h2 {
 
-  margin-top: 0;
+  margin:
+    0
+    0
+    18px;
 
   font-size: 21px;
 }
@@ -89,22 +112,60 @@ h2 {
 .upload {
 
   border:
-    2px dashed #bbb;
+    2px dashed #bdbdbd;
 
-  border-radius: 16px;
+  border-radius: 17px;
 
-  padding: 30px 15px;
+  padding:
+    28px
+    14px;
 
   text-align: center;
 
   background: #fafafa;
+
+  transition:
+    .2s;
+}
+
+.upload.active {
+
+  border-color: #007aff;
+
+  background: #f0f7ff;
+}
+
+.file-label {
+
+  display: inline-block;
+
+  background: #e9e9eb;
+
+  border-radius: 12px;
+
+  padding:
+    10px
+    18px;
+
+  font-weight: 600;
+
+  cursor: pointer;
 }
 
 input[type="file"] {
 
-  width: 100%;
+  display: none;
+}
 
-  margin-top: 15px;
+.file-name {
+
+  margin-top: 14px;
+
+  font-size: 14px;
+
+  color: #666;
+
+  word-break: break-word;
 }
 
 button {
@@ -113,11 +174,11 @@ button {
 
   border: 0;
 
-  border-radius: 14px;
+  border-radius: 15px;
 
-  padding: 15px;
+  padding: 16px;
 
-  margin-top: 15px;
+  margin-top: 16px;
 
   font-size: 17px;
 
@@ -126,45 +187,196 @@ button {
   background: #007aff;
 
   color: white;
+
+  cursor: pointer;
+
+  -webkit-tap-highlight-color:
+    transparent;
+
+  transition:
+    transform .1s,
+    opacity .2s;
+}
+
+button:active {
+
+  transform:
+    scale(.98);
 }
 
 button:disabled {
 
   background: #aaa;
+
+  cursor: not-allowed;
+}
+
+.progress-area {
+
+  display: none;
+
+  margin-top: 18px;
+}
+
+.progress-area.show {
+
+  display: block;
+}
+
+.progress-label {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  font-size: 14px;
+
+  margin-bottom: 8px;
+
+  color: #555;
+}
+
+.progress {
+
+  width: 100%;
+
+  height: 9px;
+
+  background: #e5e5e7;
+
+  border-radius: 20px;
+
+  overflow: hidden;
+}
+
+.progress-bar {
+
+  width: 0%;
+
+  height: 100%;
+
+  background: #007aff;
+
+  border-radius: 20px;
+
+  transition:
+    width .25s ease;
 }
 
 .status {
 
   margin-top: 15px;
 
-  padding: 14px;
+  padding: 15px;
 
-  border-radius: 12px;
+  border-radius: 14px;
 
-  background: #f1f1f1;
+  background: #f1f1f3;
 
   font-size: 14px;
 
+  line-height: 1.6;
+
   white-space: pre-wrap;
+
+  word-break: break-word;
+}
+
+.status.processing {
+
+  background: #eef6ff;
+
+  color: #075ca8;
+}
+
+.status.success {
+
+  background: #eaf8ee;
+
+  color: #17743a;
+}
+
+.status.error {
+
+  background: #fff0f0;
+
+  color: #b42318;
 }
 
 .transcript {
 
-  margin-top: 15px;
+  margin-top: 10px;
 
   padding: 18px;
 
-  border-radius: 14px;
+  border-radius: 15px;
 
-  background: #f7f7f7;
+  background: #f7f7f8;
 
-  line-height: 1.7;
+  line-height: 1.8;
 
   font-size: 16px;
 
   white-space: pre-wrap;
 
-  min-height: 120px;
+  word-break: break-word;
+
+  min-height: 130px;
+}
+
+.info {
+
+  padding:
+    13px
+    15px;
+
+  background: #f7f7f8;
+
+  border-radius: 13px;
+
+  margin-top: 10px;
+
+  line-height: 1.7;
+
+  font-size: 14px;
+}
+
+.step {
+
+  display: flex;
+
+  gap: 10px;
+
+  margin:
+    12px
+    0;
+
+  line-height: 1.5;
+}
+
+.step-number {
+
+  flex-shrink: 0;
+
+  width: 27px;
+
+  height: 27px;
+
+  border-radius: 50%;
+
+  background: #007aff;
+
+  color: white;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-size: 13px;
+
+  font-weight: 700;
 }
 
 .footer {
@@ -175,7 +387,12 @@ button:disabled {
 
   font-size: 13px;
 
-  margin-top: 25px;
+  margin-top: 28px;
+}
+
+.hidden {
+
+  display: none !important;
 }
 
 </style>
@@ -185,115 +402,233 @@ button:disabled {
 
 <body>
 
+
 <div class="container">
 
 
-<div class="logo">
-AI Thai Dub
-</div>
+  <!-- ================================================= -->
+  <!-- Header -->
+  <!-- ================================================= -->
+
+  <div class="logo">
+    AI Thai Dub
+  </div>
+
+  <div class="subtitle">
+    V1.8 — AI ถอดเสียงจากวิดีโอ
+  </div>
 
 
-<div class="subtitle">
-V1.7 — AI ถอดเสียงจากวิดีโอ
-</div>
+  <!-- ================================================= -->
+  <!-- Upload -->
+  <!-- ================================================= -->
+
+  <div class="card">
+
+    <h2>
+      🎬 อัปโหลดวิดีโอ
+    </h2>
 
 
-<div class="card">
+    <div
+      id="uploadBox"
+      class="upload"
+    >
 
-<h2>
-🎬 อัปโหลดวิดีโอ
-</h2>
-
-
-<div class="upload">
-
-<div>
-เลือกไฟล์เสียงหรือวิดีโอ
-</div>
-
-<input
-  type="file"
-  id="fileInput"
-  accept="audio/*,video/*"
->
-
-</div>
+      <div>
+        เลือกไฟล์เสียงหรือวิดีโอ
+      </div>
 
 
-<button
-  id="transcribeBtn"
->
-🤖 อัปโหลดและถอดเสียง
-</button>
+      <label
+        class="file-label"
+        for="fileInput"
+      >
+        เลือกไฟล์
+      </label>
 
 
-<div
-  id="status"
-  class="status"
->
-พร้อมใช้งาน
-</div>
-
-</div>
+      <input
+        type="file"
+        id="fileInput"
+        accept="audio/*,video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.mp3,.wav,.m4a"
+      >
 
 
-<div class="card">
+      <div
+        id="fileName"
+        class="file-name"
+      >
+        ยังไม่ได้เลือกไฟล์
+      </div>
 
-<h2>
-📝 ข้อความต้นฉบับ
-</h2>
-
-
-<div
-  id="transcript"
-  class="transcript"
->
-ข้อความที่ AI ถอดเสียงจะแสดงตรงนี้
-</div>
-
-</div>
+    </div>
 
 
-<div class="card">
+    <!-- Progress -->
 
-<h2>
-🇹🇭 ขั้นตอน V1.7
-</h2>
+    <div
+      id="progressArea"
+      class="progress-area"
+    >
 
-<p>
-1. 🎬 เลือกวิดีโอ
-</p>
+      <div class="progress-label">
 
-<p>
-2. 🎧 แยกเสียงด้วย FFmpeg
-</p>
+        <span id="progressText">
+          กำลังเตรียม...
+        </span>
 
-<p>
-3. 🤖 AI ถอดเสียง
-</p>
+        <span id="progressPercent">
+          0%
+        </span>
 
-<p>
-4. 📝 แสดงข้อความต้นฉบับ
-</p>
-
-<p>
-5. 🔜 แปลไทย
-</p>
-
-<p>
-6. 🔜 สร้างเสียงพากย์
-</p>
-
-<p>
-7. 🔜 รวมกลับเป็น MP4
-</p>
-
-</div>
+      </div>
 
 
-<div class="footer">
-AI Thai Dub V1.7
-</div>
+      <div class="progress">
+
+        <div
+          id="progressBar"
+          class="progress-bar"
+        ></div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Button -->
+
+    <button
+      id="transcribeBtn"
+    >
+      🤖 อัปโหลดและถอดเสียง
+    </button>
+
+
+    <!-- Status -->
+
+    <div
+      id="status"
+      class="status"
+    >
+      พร้อมใช้งาน
+    </div>
+
+  </div>
+
+
+  <!-- ================================================= -->
+  <!-- Transcript -->
+  <!-- ================================================= -->
+
+  <div class="card">
+
+    <h2>
+      📝 ข้อความต้นฉบับ
+    </h2>
+
+
+    <div
+      id="transcript"
+      class="transcript"
+    >
+      ข้อความที่ AI ถอดเสียงจะแสดงตรงนี้
+    </div>
+
+  </div>
+
+
+  <!-- ================================================= -->
+  <!-- Information -->
+  <!-- ================================================= -->
+
+  <div class="card">
+
+    <h2>
+      🇹🇭 ขั้นตอน V1.8
+    </h2>
+
+
+    <div class="step">
+
+      <div class="step-number">
+        1
+      </div>
+
+      <div>
+        🎬 เลือกวิดีโอ
+      </div>
+
+    </div>
+
+
+    <div class="step">
+
+      <div class="step-number">
+        2
+      </div>
+
+      <div>
+        📤 อัปโหลดไฟล์ไปยังเซิร์ฟเวอร์
+      </div>
+
+    </div>
+
+
+    <div class="step">
+
+      <div class="step-number">
+        3
+      </div>
+
+      <div>
+        🎧 FFmpeg แยกเสียงเป็น WAV 16 kHz
+      </div>
+
+    </div>
+
+
+    <div class="step">
+
+      <div class="step-number">
+        4
+      </div>
+
+      <div>
+        🤖 Whisper AI ถอดเสียงภาษาไทย
+      </div>
+
+    </div>
+
+
+    <div class="step">
+
+      <div class="step-number">
+        5
+      </div>
+
+      <div>
+        📝 แสดงข้อความต้นฉบับ
+      </div>
+
+    </div>
+
+
+    <div class="info">
+
+      🔜 ขั้นต่อไปของโปรเจกต์:
+      แปลภาษา → สร้างเสียงพากย์ →
+      รวมเสียงกลับเป็นวิดีโอ
+
+    </div>
+
+  </div>
+
+
+  <div class="footer">
+    AI Thai Dub V1.8
+  </div>
 
 
 </div>
@@ -301,9 +636,24 @@ AI Thai Dub V1.7
 
 <script>
 
+
+// =======================================================
+// Elements
+// =======================================================
+
 const fileInput =
   document.getElementById(
     "fileInput"
+  );
+
+const fileName =
+  document.getElementById(
+    "fileName"
+  );
+
+const uploadBox =
+  document.getElementById(
+    "uploadBox"
   );
 
 const transcribeBtn =
@@ -321,10 +671,34 @@ const transcriptBox =
     "transcript"
   );
 
+const progressArea =
+  document.getElementById(
+    "progressArea"
+  );
 
-transcribeBtn.addEventListener(
-  "click",
-  async function () {
+const progressBar =
+  document.getElementById(
+    "progressBar"
+  );
+
+const progressText =
+  document.getElementById(
+    "progressText"
+  );
+
+const progressPercent =
+  document.getElementById(
+    "progressPercent"
+  );
+
+
+// =======================================================
+// File selected
+// =======================================================
+
+fileInput.addEventListener(
+  "change",
+  function () {
 
     const file =
       fileInput.files[0];
@@ -332,90 +706,491 @@ transcribeBtn.addEventListener(
 
     if (!file) {
 
-      statusBox.textContent =
-        "กรุณาเลือกไฟล์ก่อน";
+      fileName.textContent =
+        "ยังไม่ได้เลือกไฟล์";
+
+      uploadBox.classList.remove(
+        "active"
+      );
 
       return;
     }
 
 
+    uploadBox.classList.add(
+      "active"
+    );
+
+
+    const sizeMB =
+      (
+        file.size /
+        1024 /
+        1024
+      ).toFixed(1);
+
+
+    fileName.textContent =
+      file.name +
+      " • " +
+      sizeMB +
+      " MB";
+
+
+    statusBox.className =
+      "status";
+
+
+    statusBox.textContent =
+      "พร้อมอัปโหลด ✅";
+
+
+    transcriptBox.textContent =
+      "กดปุ่มด้านบนเพื่อเริ่มถอดเสียง";
+  }
+);
+
+
+// =======================================================
+// Update progress
+// =======================================================
+
+function setProgress(
+  percent,
+  text
+) {
+
+  progressArea.classList.add(
+    "show"
+  );
+
+
+  const safePercent =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        percent
+      )
+    );
+
+
+  progressBar.style.width =
+    safePercent + "%";
+
+
+  progressPercent.textContent =
+    Math.round(
+      safePercent
+    ) + "%";
+
+
+  progressText.textContent =
+    text;
+}
+
+
+// =======================================================
+// Status
+// =======================================================
+
+function setStatus(
+  message,
+  type = ""
+) {
+
+  statusBox.className =
+    "status " + type;
+
+  statusBox.textContent =
+    message;
+}
+
+
+// =======================================================
+// Transcribe
+// =======================================================
+
+transcribeBtn.addEventListener(
+  "click",
+  function () {
+
+    const file =
+      fileInput.files[0];
+
+
+    if (!file) {
+
+      setStatus(
+        "กรุณาเลือกไฟล์ก่อน",
+        "error"
+      );
+
+      return;
+    }
+
+
+    // -----------------------------------------------
+    // Disable button
+    // -----------------------------------------------
+
     transcribeBtn.disabled =
       true;
 
 
-    statusBox.textContent =
-      "⏳ กำลังอัปโหลดวิดีโอ...\n\n" +
-      "จากนั้น AI จะถอดเสียง";
+    transcribeBtn.textContent =
+      "⏳ กำลังประมวลผล...";
+
 
     transcriptBox.textContent =
-      "กำลังประมวลผล...";
+      "กำลังเตรียมไฟล์...";
 
 
-    try {
-
-      const formData =
-        new FormData();
-
-      formData.append(
-        "file",
-        file
-      );
+    setProgress(
+      0,
+      "กำลังเตรียมอัปโหลด..."
+    );
 
 
-      const response =
-        await fetch(
-          "/api/transcribe",
-          {
-            method: "POST",
-            body: formData
+    setStatus(
+      "📤 กำลังอัปโหลดไฟล์...\n\n" +
+      "กรุณาอย่าปิดหน้านี้",
+      "processing"
+    );
+
+
+    // =================================================
+    // FormData
+    // =================================================
+
+    const formData =
+      new FormData();
+
+
+    formData.append(
+      "file",
+      file
+    );
+
+
+    // =================================================
+    // XMLHttpRequest
+    //
+    // ใช้ XHR แทน fetch เพื่อดู
+    // upload progress บน iPhone
+    // =================================================
+
+    const xhr =
+      new XMLHttpRequest();
+
+
+    xhr.open(
+      "POST",
+      "/api/transcribe",
+      true
+    );
+
+
+    xhr.timeout =
+      10 * 60 * 1000;
+
+
+    // =================================================
+    // Upload progress
+    // =================================================
+
+    xhr.upload.onprogress =
+      function (event) {
+
+        if (!event.lengthComputable) {
+
+          setProgress(
+            10,
+            "กำลังอัปโหลด..."
+          );
+
+          return;
+        }
+
+
+        const percent =
+          (
+            event.loaded /
+            event.total
+          ) * 100;
+
+
+        setProgress(
+          percent,
+          "📤 กำลังอัปโหลดไฟล์..."
+        );
+
+
+        setStatus(
+          "📤 กำลังอัปโหลด...\n\n" +
+          Math.round(percent) +
+          "%\n\n" +
+          "ไฟล์: " +
+          file.name,
+          "processing"
+        );
+      };
+
+
+    // =================================================
+    // Upload completed
+    // =================================================
+
+    xhr.upload.onload =
+      function () {
+
+        setProgress(
+          100,
+          "อัปโหลดเสร็จแล้ว"
+        );
+
+
+        setStatus(
+          "✅ อัปโหลดไฟล์สำเร็จ\n\n" +
+          "🤖 กำลังประมวลผลด้วย Whisper AI...\n\n" +
+          "ขั้นตอนนี้อาจใช้เวลาสักครู่\n" +
+          "กรุณาอย่าปิดหน้านี้",
+          "processing"
+        );
+
+
+        transcriptBox.textContent =
+          "🤖 Whisper AI กำลังถอดเสียง...\n\n" +
+          "รอสักครู่...";
+      };
+
+
+    // =================================================
+    // Server response
+    // =================================================
+
+    xhr.onload =
+      function () {
+
+        console.log(
+          "SERVER STATUS:",
+          xhr.status
+        );
+
+
+        console.log(
+          "SERVER RESPONSE:",
+          xhr.responseText
+        );
+
+
+        let data = null;
+
+
+        try {
+
+          data =
+            JSON.parse(
+              xhr.responseText
+            );
+
+        } catch (e) {
+
+          data = null;
+        }
+
+
+        // ---------------------------------------------
+        // Success
+        // ---------------------------------------------
+
+        if (
+          xhr.status >= 200 &&
+          xhr.status < 300
+        ) {
+
+          if (!data) {
+
+            setStatus(
+              "เกิดข้อผิดพลาด ❌\n\n" +
+              "เซิร์ฟเวอร์ส่งข้อมูลกลับมาไม่ถูกต้อง",
+              "error"
+            );
+
+            transcriptBox.textContent =
+              "ไม่สามารถอ่านผลลัพธ์จากเซิร์ฟเวอร์ได้";
+
+            finish();
+
+            return;
           }
+
+
+          setProgress(
+            100,
+            "เสร็จสมบูรณ์"
+          );
+
+
+          setStatus(
+            "🎉 ถอดเสียงสำเร็จ!\n\n" +
+            "ไฟล์: " +
+            (
+              data.filename ||
+              file.name
+            ),
+            "success"
+          );
+
+
+          transcriptBox.textContent =
+            data.transcript ||
+            "ไม่พบข้อความเสียงพูด";
+
+
+          finish();
+
+          return;
+        }
+
+
+        // ---------------------------------------------
+        // Server error
+        // ---------------------------------------------
+
+        let errorMessage =
+          "เซิร์ฟเวอร์เกิดข้อผิดพลาด";
+
+
+        if (
+          data &&
+          data.detail
+        ) {
+
+          errorMessage =
+            data.detail;
+
+        } else if (
+          xhr.responseText
+        ) {
+
+          errorMessage =
+            xhr.responseText;
+        }
+
+
+        setStatus(
+          "เกิดข้อผิดพลาด ❌\n\n" +
+          errorMessage,
+          "error"
         );
 
 
-      const data =
-        await response.json();
+        transcriptBox.textContent =
+          "ไม่สามารถถอดเสียงได้";
 
 
-      if (!response.ok) {
+        finish();
+      };
 
-        throw new Error(
-          data.detail ||
-          "เกิดข้อผิดพลาด"
+
+    // =================================================
+    // Network error
+    // =================================================
+
+    xhr.onerror =
+      function () {
+
+        setStatus(
+          "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ❌\n\n" +
+          "กรุณาตรวจสอบอินเทอร์เน็ต\n" +
+          "แล้วลองใหม่อีกครั้ง",
+          "error"
         );
-      }
 
 
-      statusBox.textContent =
-        "ถอดเสียงสำเร็จ ✅\n\n" +
-        "ไฟล์: " +
-        data.filename;
+        transcriptBox.textContent =
+          "ไม่สามารถเชื่อมต่อ AI Server ได้";
 
 
-      transcriptBox.textContent =
-        data.transcript ||
-        "ไม่พบข้อความ";
+        finish();
+      };
 
 
-    } catch (error) {
+    // =================================================
+    // Timeout
+    // =================================================
 
-      statusBox.textContent =
-        "เกิดข้อผิดพลาด ❌\n\n" +
-        error.message;
+    xhr.ontimeout =
+      function () {
+
+        setStatus(
+          "ใช้เวลานานเกินไป ❌\n\n" +
+          "เซิร์ฟเวอร์ใช้เวลาประมวลผลเกิน 10 นาที\n\n" +
+          "ลองใช้วิดีโอที่สั้นลง",
+          "error"
+        );
 
 
-      transcriptBox.textContent =
-        "ไม่สามารถถอดเสียงได้";
-
-    }
+        transcriptBox.textContent =
+          "การประมวลผลหมดเวลา";
 
 
-    transcribeBtn.disabled =
-      false;
+        finish();
+      };
+
+
+    // =================================================
+    // Abort
+    // =================================================
+
+    xhr.onabort =
+      function () {
+
+        setStatus(
+          "การอัปโหลดถูกยกเลิก ❌",
+          "error"
+        );
+
+
+        transcriptBox.textContent =
+          "ไม่ได้ประมวลผลไฟล์";
+
+
+        finish();
+      };
+
+
+    // =================================================
+    // Send
+    // =================================================
+
+    xhr.send(
+      formData
+    );
+
 
   }
 );
 
+
+// =======================================================
+// Finish
+// =======================================================
+
+function finish() {
+
+  transcribeBtn.disabled =
+    false;
+
+
+  transcribeBtn.textContent =
+    "🤖 อัปโหลดและถอดเสียง";
+}
+
+
 </script>
+
 
 </body>
 
