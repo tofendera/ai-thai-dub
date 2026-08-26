@@ -2,7 +2,6 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from openai import OpenAI
 import os
 import subprocess
 import tempfile
@@ -11,11 +10,14 @@ import tempfile
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
+WHISPER_BIN = "/opt/whisper.cpp/build/bin/whisper-cli"
+WHISPER_MODEL = "/opt/whisper.cpp/models/ggml-tiny-q5_1.bin"
+
 app = FastAPI(title="AI Thai Dub V1.7")
 
 
 # =========================
-# Static
+# Static website
 # =========================
 
 if STATIC_DIR.exists():
@@ -26,96 +28,77 @@ if STATIC_DIR.exists():
     )
 
 
-# =========================
-# OpenAI
-# =========================
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client = None
-
-if OPENAI_API_KEY:
-    client = OpenAI(api_key=OPENAI_API_KEY)
-
-
-# =========================
-# Home
-# =========================
-
 @app.get("/")
-async def home():
-
+def home():
     index_file = STATIC_DIR / "index.html"
 
-    if not index_file.exists():
-        return {
-            "status": "ok",
-            "service": "AI Thai Dub V1.7"
-        }
-
-    return FileResponse(index_file)
-
-
-# =========================
-# Health
-# =========================
-
-@app.get("/api/health")
-async def health():
+    if index_file.exists():
+        return FileResponse(index_file)
 
     return {
         "status": "ok",
-        "service": "AI Thai Dub V1.7",
-        "openai_configured": bool(OPENAI_API_KEY)
+        "service": "AI Thai Dub V1.7"
     }
 
 
 # =========================
-# Transcription
+# Health check
+# =========================
+
+@app.get("/api/health")
+def health():
+    return {
+        "status": "ok",
+        "service": "AI Thai Dub V1.7",
+        "whisper_exists": os.path.exists(WHISPER_BIN),
+        "model_exists": os.path.exists(WHISPER_MODEL)
+    }
+
+
+# =========================
+# Whisper transcription
 # =========================
 
 @app.post("/api/transcribe")
+@app.post("/api/upload")
 async def transcribe(file: UploadFile = File(...)):
 
     if not file.filename:
         raise HTTPException(
             status_code=400,
-            detail="กรุณาเลือกไฟล์"
+            detail="ไม่ได้เลือกไฟล์"
         )
 
-    if client is None:
-        raise HTTPException(
-            status_code=500,
-            detail="ยังไม่ได้ตั้งค่า OPENAI_API_KEY"
-        )
+    suffix = Path(file.filename).suffix.lower()
 
-    allowed_extensions = {
-        ".mp3",
-        ".wav",
-        ".m4a",
+    allowed = {
         ".mp4",
         ".mov",
+        ".m4v",
+        ".avi",
+        ".mkv",
         ".webm",
-        ".ogg",
-        ".mpeg",
-        ".mpga"
+        ".mp3",
+        ".wav",
+        ".m4a"
     }
 
-    extension = Path(file.filename).suffix.lower()
-
-    if extension not in allowed_extensions:
+    if suffix not in allowed:
         raise HTTPException(
             status_code=400,
-            detail="ไฟล์ชนิดนี้ยังไม่รองรับ"
+            detail="รองรับไฟล์ MP4, MOV, M4V, AVI, MKV, WEBM, MP3, WAV และ M4A"
         )
 
-    contents = await file.read()
-
-    # V1.7 จำกัด 25 MB
-    if len(contents) > 25 * 1024 * 1024:
+    if not os.path.exists(WHISPER_BIN):
         raise HTTPException(
-            status_code=400,
-            detail="ไฟล์ใหญ่เกิน 25 MB ใน V1.7"
+            status_code=500,
+            detail="ไม่พบ Whisper"
+        )
+
+    if not os.path.exists(WHISPER_MODEL):
+        raise HTTPException(
+            status_code=500,
+            detail="ไม่พบ Whisper model"
         )
 
     try:
@@ -124,18 +107,21 @@ async def transcribe(file: UploadFile = File(...)):
 
             temp_dir = Path(temp_dir)
 
-            input_file = temp_dir / file.filename
-            audio_file = temp_dir / "audio.mp3"
+            input_file = temp_dir / f"input{suffix}"
+            audio_file = temp_dir / "audio.wav"
 
-            # บันทึกไฟล์ต้นฉบับ
+            # Save uploaded file
             with open(input_file, "wb") as f:
-                f.write(contents)
+                while True:
+                    chunk = await file.read(1024 * 1024)
 
-            # =========================
-            # FFmpeg
-            # =========================
+                    if not chunk:
+                        break
 
-            command = [
+                    f.write(chunk)
+
+            # Convert video/audio to 16 kHz mono WAV
+            ffmpeg_cmd = [
                 "ffmpeg",
                 "-y",
                 "-i",
@@ -145,64 +131,66 @@ async def transcribe(file: UploadFile = File(...)):
                 "1",
                 "-ar",
                 "16000",
-                "-codec:a",
-                "libmp3lame",
-                "-q:a",
-                "4",
+                "-c:a",
+                "pcm_s16le",
                 str(audio_file)
             ]
 
-            result = subprocess.run(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+            ffmpeg_result = subprocess.run(
+                ffmpeg_cmd,
+                capture_output=True,
+                text=True
             )
 
-            if result.returncode != 0:
+            if ffmpeg_result.returncode != 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail="ไม่สามารถแปลงไฟล์เสียงได้"
+                )
 
-                print(
-                    "FFMPEG ERROR:",
-                    result.stderr.decode(
-                        errors="ignore"
+            # Run Whisper
+            whisper_cmd = [
+                WHISPER_BIN,
+                "-m",
+                WHISPER_MODEL,
+                "-f",
+                str(audio_file),
+                "-l",
+                "auto",
+                "-nt"
+            ]
+
+            whisper_result = subprocess.run(
+                whisper_cmd,
+                capture_output=True,
+                text=True
+            )
+
+            if whisper_result.returncode != 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "Whisper transcription failed: "
+                        + whisper_result.stderr[-1000:]
                     )
                 )
 
-                raise HTTPException(
-                    status_code=500,
-                    detail="FFmpeg ไม่สามารถแยกเสียงได้"
-                )
+            transcript = whisper_result.stdout.strip()
 
-            # =========================
-            # OpenAI
-            # =========================
-
-            with open(audio_file, "rb") as audio:
-
-                transcription = client.audio.transcriptions.create(
-                    model="gpt-4o-mini-transcribe",
-                    file=audio
-                )
-
-            text = transcription.text
+            if not transcript:
+                transcript = "ไม่สามารถตรวจพบเสียงพูดในไฟล์ได้"
 
             return {
-                "status": "success",
-                "service": "AI Thai Dub V1.7",
+                "status": "ok",
                 "filename": file.filename,
-                "transcript": text
+                "transcript": transcript
             }
 
     except HTTPException:
         raise
 
     except Exception as e:
-
-        print(
-            "TRANSCRIPTION ERROR:",
-            repr(e)
-        )
-
         raise HTTPException(
             status_code=500,
-            detail=f"เกิดข้อผิดพลาดในการถอดเสียง: {str(e)}"
+            detail=f"เกิดข้อผิดพลาด: {str(e)}"
         )
