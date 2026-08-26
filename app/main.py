@@ -12,15 +12,27 @@ import wave
 
 # =========================================================
 # AI Thai Dub V2.1
-# Stable transcription version
 # =========================================================
 
-BASE_DIR = Path(__file__).resolve().parent
+# main.py อยู่ใน:
+#
+# /app/main.py
+#
+# static อยู่ที่:
+#
+# /static/index.html
+#
+# ดังนั้นต้องถอยจาก app กลับไป root 1 ระดับ
+# =========================================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 STATIC_DIR = BASE_DIR / "static"
 
-# ---------------------------------------------------------
-# Whisper
-# ---------------------------------------------------------
+
+# =========================================================
+# Whisper Configuration
+# =========================================================
 
 WHISPER_BIN = os.getenv(
     "WHISPER_BIN",
@@ -32,9 +44,16 @@ WHISPER_MODEL = os.getenv(
     "/opt/whisper.cpp/models/ggml-tiny.bin"
 )
 
-# Maximum video duration allowed
+
+# =========================================================
+# Maximum video duration
+# =========================================================
+
 MAX_DURATION_SECONDS = int(
-    os.getenv("MAX_DURATION_SECONDS", "180")
+    os.getenv(
+        "MAX_DURATION_SECONDS",
+        "180"
+    )
 )
 
 
@@ -43,13 +62,13 @@ MAX_DURATION_SECONDS = int(
 # =========================================================
 
 app = FastAPI(
-    title="AI Thai Dub V2.1",
+    title="AI Thai Dub",
     version="2.1"
 )
 
 
 # =========================================================
-# Static Website
+# Static Files
 # =========================================================
 
 if STATIC_DIR.exists():
@@ -57,11 +76,15 @@ if STATIC_DIR.exists():
     app.mount(
         "/static",
         StaticFiles(
-            directory=STATIC_DIR
+            directory=str(STATIC_DIR)
         ),
         name="static"
     )
 
+
+# =========================================================
+# HOME
+# =========================================================
 
 @app.get("/")
 def home():
@@ -71,17 +94,19 @@ def home():
     if index_file.exists():
 
         return FileResponse(
-            index_file
+            str(index_file)
         )
 
     return {
         "status": "ok",
-        "service": "AI Thai Dub V2.1"
+        "service": "AI Thai Dub V2.1",
+        "error": "ไม่พบ static/index.html",
+        "static_dir": str(STATIC_DIR)
     }
 
 
 # =========================================================
-# Health Check
+# HEALTH CHECK
 # =========================================================
 
 @app.get("/api/health")
@@ -118,11 +143,20 @@ def health():
         "ffprobe_exists":
             ffprobe_path is not None,
 
+        "static_exists":
+            STATIC_DIR.exists(),
+
+        "index_exists":
+            (STATIC_DIR / "index.html").exists(),
+
         "whisper_path":
             WHISPER_BIN,
 
         "model_path":
             WHISPER_MODEL,
+
+        "static_path":
+            str(STATIC_DIR),
 
         "max_duration_seconds":
             MAX_DURATION_SECONDS
@@ -130,10 +164,12 @@ def health():
 
 
 # =========================================================
-# Get Media Duration
+# GET MEDIA DURATION
 # =========================================================
 
-def get_duration(media_file: Path) -> float:
+def get_duration(
+    media_file: Path
+) -> float:
 
     ffprobe = shutil.which(
         "ffprobe"
@@ -144,6 +180,7 @@ def get_duration(media_file: Path) -> float:
         raise RuntimeError(
             "ไม่พบ ffprobe"
         )
+
 
     command = [
 
@@ -161,6 +198,7 @@ def get_duration(media_file: Path) -> float:
         str(media_file)
     ]
 
+
     result = subprocess.run(
 
         command,
@@ -174,12 +212,14 @@ def get_duration(media_file: Path) -> float:
         timeout=30
     )
 
+
     if result.returncode != 0:
 
         raise RuntimeError(
-            "ไม่สามารถอ่านความยาววิดีโอได้\n"
+            "ไม่สามารถอ่านความยาวไฟล์ได้\n"
             + result.stderr[-2000:]
         )
+
 
     try:
 
@@ -190,17 +230,20 @@ def get_duration(media_file: Path) -> float:
     except Exception:
 
         raise RuntimeError(
-            "ไม่สามารถอ่านค่าความยาววิดีโอได้"
+            "ไม่สามารถอ่านค่าความยาวไฟล์ได้"
         )
+
 
     return duration
 
 
 # =========================================================
-# WAV Validation
+# CHECK WAV
 # =========================================================
 
-def check_wav(wav_file: Path):
+def check_wav(
+    wav_file: Path
+):
 
     try:
 
@@ -209,13 +252,22 @@ def check_wav(wav_file: Path):
             "rb"
         ) as wav:
 
-            channels = wav.getnchannels()
+            channels = (
+                wav.getnchannels()
+            )
 
-            sample_width = wav.getsampwidth()
+            sample_width = (
+                wav.getsampwidth()
+            )
 
-            sample_rate = wav.getframerate()
+            sample_rate = (
+                wav.getframerate()
+            )
 
-            frames = wav.getnframes()
+            frames = (
+                wav.getnframes()
+            )
+
 
         return {
 
@@ -232,6 +284,7 @@ def check_wav(wav_file: Path):
                 frames
         }
 
+
     except Exception as e:
 
         raise RuntimeError(
@@ -241,25 +294,35 @@ def check_wav(wav_file: Path):
 
 
 # =========================================================
-# Clean Whisper Output
+# CLEAN WHISPER OUTPUT
 # =========================================================
 
-def clean_whisper_output(text: str):
+def clean_whisper_output(
+    text: str
+):
 
     if not text:
 
         return ""
 
+
     lines = []
+
 
     for line in text.splitlines():
 
         line = line.strip()
 
+
         if not line:
+
             continue
 
-        # Whisper system/log lines
+
+        # -------------------------------------------------
+        # Whisper system / log
+        # -------------------------------------------------
+
         skip_prefixes = (
 
             "whisper_",
@@ -276,17 +339,23 @@ def clean_whisper_output(text: str):
 
             "loading model",
 
-            "print_timings"
+            "print_timings",
+
+            "encode_image"
         )
+
 
         if line.startswith(
             skip_prefixes
         ):
+
             continue
+
 
         lines.append(
             line
         )
+
 
     return "\n".join(
         lines
@@ -294,7 +363,7 @@ def clean_whisper_output(text: str):
 
 
 # =========================================================
-# Transcribe
+# TRANSCRIBE
 # =========================================================
 
 @app.post("/api/transcribe")
@@ -304,7 +373,7 @@ async def transcribe(
 ):
 
     # =====================================================
-    # Check filename
+    # FILE NAME
     # =====================================================
 
     if not file.filename:
@@ -324,10 +393,10 @@ async def transcribe(
 
 
     # =====================================================
-    # Allowed files
+    # ALLOWED FILES
     # =====================================================
 
-    allowed = {
+    allowed_extensions = {
 
         ".mp4",
 
@@ -355,23 +424,24 @@ async def transcribe(
     }
 
 
-    if suffix not in allowed:
+    if suffix not in allowed_extensions:
 
         raise HTTPException(
 
             status_code=400,
 
             detail=(
-                "รองรับไฟล์ "
-                "MP4, MOV, M4V, AVI, MKV, "
-                "WEBM, MP3, WAV, M4A, "
+                "ไม่รองรับไฟล์ประเภทนี้\n\n"
+                "รองรับ:\n"
+                "MP4, MOV, M4V, AVI, MKV,\n"
+                "WEBM, MP3, WAV, M4A,\n"
                 "AAC, FLAC และ OGG"
             )
         )
 
 
     # =====================================================
-    # Check Whisper
+    # CHECK WHISPER
     # =====================================================
 
     if not os.path.exists(
@@ -383,11 +453,15 @@ async def transcribe(
             status_code=500,
 
             detail=(
-                "ไม่พบ Whisper binary\n"
+                "ไม่พบ Whisper binary\n\n"
                 + WHISPER_BIN
             )
         )
 
+
+    # =====================================================
+    # CHECK MODEL
+    # =====================================================
 
     if not os.path.exists(
         WHISPER_MODEL
@@ -398,14 +472,14 @@ async def transcribe(
             status_code=500,
 
             detail=(
-                "ไม่พบ Whisper model\n"
+                "ไม่พบ Whisper model\n\n"
                 + WHISPER_MODEL
             )
         )
 
 
     # =====================================================
-    # Check FFmpeg
+    # CHECK FFMPEG
     # =====================================================
 
     ffmpeg = shutil.which(
@@ -424,7 +498,7 @@ async def transcribe(
 
 
     # =====================================================
-    # Check FFprobe
+    # CHECK FFPROBE
     # =====================================================
 
     ffprobe = shutil.which(
@@ -443,7 +517,7 @@ async def transcribe(
 
 
     # =====================================================
-    # Temporary Workspace
+    # TEMPORARY WORKSPACE
     # =====================================================
 
     try:
@@ -468,7 +542,7 @@ async def transcribe(
 
 
             # =================================================
-            # Save Upload
+            # SAVE UPLOAD
             # =================================================
 
             total_bytes = 0
@@ -485,13 +559,16 @@ async def transcribe(
                         1024 * 1024
                     )
 
+
                     if not chunk:
 
                         break
 
+
                     output.write(
                         chunk
                     )
+
 
                     total_bytes += len(
                         chunk
@@ -509,7 +586,9 @@ async def transcribe(
                 )
 
 
-            print("=" * 60)
+            print(
+                "=" * 60
+            )
 
             print(
                 "AI THAI DUB V2.1"
@@ -532,7 +611,7 @@ async def transcribe(
 
 
             # =================================================
-            # Get Duration
+            # GET DURATION
             # =================================================
 
             try:
@@ -547,9 +626,10 @@ async def transcribe(
 
                     status_code=400,
 
-                    detail=
-                        "อ่านความยาวไฟล์ไม่ได้\n"
+                    detail=(
+                        "ไม่สามารถอ่านความยาวไฟล์ได้\n\n"
                         + str(e)
+                    )
                 )
 
 
@@ -561,7 +641,7 @@ async def transcribe(
 
 
             # =================================================
-            # Duration Check
+            # CHECK DURATION
             # =================================================
 
             if duration <= 0:
@@ -583,20 +663,22 @@ async def transcribe(
 
                     detail=(
                         "วิดีโอยาวเกินไป\n\n"
-                        f"ความยาว: "
-                        f"{round(duration, 1)} วินาที\n"
-                        f"รองรับสูงสุด: "
+                        f"ความยาววิดีโอ: "
+                        f"{round(duration, 1)} วินาที\n\n"
+                        f"ระบบรองรับสูงสุด: "
                         f"{MAX_DURATION_SECONDS} วินาที\n\n"
-                        "กรุณาลองวิดีโอที่สั้นลง"
+                        "กรุณาเลือกวิดีโอที่สั้นลง"
                     )
                 )
 
 
             # =================================================
-            # FFmpeg
+            # FFMPEG
             # =================================================
 
-            print("=" * 60)
+            print(
+                "=" * 60
+            )
 
             print(
                 "FFMPEG START"
@@ -642,7 +724,7 @@ async def transcribe(
 
                 text=True,
 
-                timeout=90
+                timeout=120
             )
 
 
@@ -676,19 +758,8 @@ async def transcribe(
                 )
 
 
-            audio_size = (
-                audio_file.stat().st_size
-            )
-
-
-            print(
-                "AUDIO SIZE:",
-                audio_size
-            )
-
-
             # =================================================
-            # WAV Check
+            # WAV VALIDATION
             # =================================================
 
             wav_info = check_wav(
@@ -736,10 +807,12 @@ async def transcribe(
 
 
             # =================================================
-            # Whisper
+            # WHISPER
             # =================================================
 
-            print("=" * 60)
+            print(
+                "=" * 60
+            )
 
             print(
                 "WHISPER START"
@@ -779,11 +852,9 @@ async def transcribe(
             )
 
 
-            # -------------------------------------------------
-            # Timeout
-            #
-            # เผื่อเวลาให้ Whisper มากกว่าความยาววิดีโอ
-            # -------------------------------------------------
+            # =================================================
+            # WHISPER TIMEOUT
+            # =================================================
 
             whisper_timeout = max(
 
@@ -791,10 +862,10 @@ async def transcribe(
 
                 min(
 
-                    240,
+                    300,
 
                     int(
-                        duration * 4
+                        duration * 5
                     ) + 30
                 )
             )
@@ -822,6 +893,7 @@ async def transcribe(
                     timeout=whisper_timeout
                 )
 
+
             except subprocess.TimeoutExpired:
 
                 raise HTTPException(
@@ -832,7 +904,7 @@ async def transcribe(
                         "Whisper ใช้เวลานานเกินไป\n\n"
                         f"วิดีโอ: "
                         f"{round(duration, 1)} วินาที\n"
-                        f"เวลาประมวลผลสูงสุด: "
+                        f"เวลาที่อนุญาต: "
                         f"{whisper_timeout} วินาที\n\n"
                         "กรุณาลองวิดีโอที่สั้นลง"
                     )
@@ -840,10 +912,12 @@ async def transcribe(
 
 
             # =================================================
-            # Whisper Result
+            # WHISPER RESULT
             # =================================================
 
-            print("=" * 60)
+            print(
+                "=" * 60
+            )
 
             print(
                 "WHISPER RETURN:",
@@ -870,16 +944,21 @@ async def transcribe(
 
 
             # =================================================
-            # Whisper Error
+            # WHISPER ERROR
             # =================================================
 
             if whisper_result.returncode != 0:
 
                 error_text = (
+
                     whisper_result.stderr.strip()
+
                     or
+
                     whisper_result.stdout.strip()
+
                     or
+
                     "ไม่ทราบสาเหตุ"
                 )
 
@@ -898,7 +977,7 @@ async def transcribe(
 
 
             # =================================================
-            # Clean Transcript
+            # TRANSCRIPT
             # =================================================
 
             transcript = clean_whisper_output(
@@ -915,10 +994,12 @@ async def transcribe(
 
 
             # =================================================
-            # Final Result
+            # COMPLETE
             # =================================================
 
-            print("=" * 60)
+            print(
+                "=" * 60
+            )
 
             print(
                 "TRANSCRIPTION COMPLETE"
@@ -928,6 +1009,10 @@ async def transcribe(
                 transcript
             )
 
+
+            # =================================================
+            # RESPONSE
+            # =================================================
 
             return {
 
@@ -973,7 +1058,16 @@ async def transcribe(
 
 
     # =====================================================
-    # Timeout
+    # HTTP EXCEPTION
+    # =====================================================
+
+    except HTTPException:
+
+        raise
+
+
+    # =====================================================
+    # TIMEOUT
     # =====================================================
 
     except subprocess.TimeoutExpired:
@@ -990,16 +1084,7 @@ async def transcribe(
 
 
     # =====================================================
-    # HTTP Error
-    # =====================================================
-
-    except HTTPException:
-
-        raise
-
-
-    # =====================================================
-    # Unexpected Error
+    # UNEXPECTED ERROR
     # =====================================================
 
     except Exception as e:
