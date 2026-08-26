@@ -2,38 +2,25 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
 import os
+import shutil
 import subprocess
 import tempfile
-import shutil
 import wave
-import json
-import urllib.request
-import urllib.error
 
 
 # =========================================================
-# AI Thai Dub V2.0
+# AI Thai Dub V2.1
+# Stable transcription version
 # =========================================================
 
-# main.py อยู่ที่:
-# /app/app/main.py
-#
-# static อยู่ที่:
-# /app/static/
-#
-# ดังนั้นต้องถอยกลับ 1 ระดับ
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
-
-# =========================================================
+# ---------------------------------------------------------
 # Whisper
-# =========================================================
+# ---------------------------------------------------------
 
 WHISPER_BIN = os.getenv(
     "WHISPER_BIN",
@@ -45,19 +32,9 @@ WHISPER_MODEL = os.getenv(
     "/opt/whisper.cpp/models/ggml-tiny.bin"
 )
 
-
-# =========================================================
-# OpenAI
-# =========================================================
-
-OPENAI_API_KEY = os.getenv(
-    "OPENAI_API_KEY",
-    ""
-)
-
-OPENAI_MODEL = os.getenv(
-    "OPENAI_MODEL",
-    "gpt-4o-mini"
+# Maximum video duration allowed
+MAX_DURATION_SECONDS = int(
+    os.getenv("MAX_DURATION_SECONDS", "180")
 )
 
 
@@ -66,8 +43,8 @@ OPENAI_MODEL = os.getenv(
 # =========================================================
 
 app = FastAPI(
-    title="AI Thai Dub V2.0",
-    version="2.0"
+    title="AI Thai Dub V2.1",
+    version="2.1"
 )
 
 
@@ -80,15 +57,11 @@ if STATIC_DIR.exists():
     app.mount(
         "/static",
         StaticFiles(
-            directory=str(STATIC_DIR)
+            directory=STATIC_DIR
         ),
         name="static"
     )
 
-
-# =========================================================
-# HOME
-# =========================================================
 
 @app.get("/")
 def home():
@@ -98,83 +71,136 @@ def home():
     if index_file.exists():
 
         return FileResponse(
-            str(index_file),
-            media_type="text/html"
+            index_file
         )
 
     return {
         "status": "ok",
-        "service": "AI Thai Dub V2.0",
-        "error": "ไม่พบ static/index.html",
-        "base_dir": str(BASE_DIR),
-        "static_dir": str(STATIC_DIR)
+        "service": "AI Thai Dub V2.1"
     }
 
 
 # =========================================================
-# HEALTH CHECK
+# Health Check
 # =========================================================
 
 @app.get("/api/health")
 def health():
 
-    ffmpeg_path = shutil.which("ffmpeg")
+    ffmpeg_path = shutil.which(
+        "ffmpeg"
+    )
+
+    ffprobe_path = shutil.which(
+        "ffprobe"
+    )
 
     return {
 
         "status": "ok",
 
-        "service": "AI Thai Dub V2.0",
-
-        "version": "2.0",
+        "service":
+            "AI Thai Dub V2.1",
 
         "whisper_exists":
-            os.path.exists(WHISPER_BIN),
-
-        "whisper_executable":
-            os.access(
-                WHISPER_BIN,
-                os.X_OK
-            ) if os.path.exists(WHISPER_BIN) else False,
+            os.path.exists(
+                WHISPER_BIN
+            ),
 
         "model_exists":
-            os.path.exists(WHISPER_MODEL),
-
-        "model_size":
-            (
-                os.path.getsize(
-                    WHISPER_MODEL
-                )
-                if os.path.exists(WHISPER_MODEL)
-                else 0
+            os.path.exists(
+                WHISPER_MODEL
             ),
 
         "ffmpeg_exists":
             ffmpeg_path is not None,
 
-        "ffmpeg_path":
-            ffmpeg_path,
+        "ffprobe_exists":
+            ffprobe_path is not None,
 
-        "static_exists":
-            STATIC_DIR.exists(),
+        "whisper_path":
+            WHISPER_BIN,
 
-        "index_exists":
-            (
-                STATIC_DIR / "index.html"
-            ).exists(),
+        "model_path":
+            WHISPER_MODEL,
 
-        "openai_configured":
-            bool(OPENAI_API_KEY)
+        "max_duration_seconds":
+            MAX_DURATION_SECONDS
     }
 
 
 # =========================================================
-# WAV CHECK
+# Get Media Duration
 # =========================================================
 
-def check_wav(
-    wav_file: Path
-):
+def get_duration(media_file: Path) -> float:
+
+    ffprobe = shutil.which(
+        "ffprobe"
+    )
+
+    if not ffprobe:
+
+        raise RuntimeError(
+            "ไม่พบ ffprobe"
+        )
+
+    command = [
+
+        ffprobe,
+
+        "-v",
+        "error",
+
+        "-show_entries",
+        "format=duration",
+
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+
+        str(media_file)
+    ]
+
+    result = subprocess.run(
+
+        command,
+
+        stdout=subprocess.PIPE,
+
+        stderr=subprocess.PIPE,
+
+        text=True,
+
+        timeout=30
+    )
+
+    if result.returncode != 0:
+
+        raise RuntimeError(
+            "ไม่สามารถอ่านความยาววิดีโอได้\n"
+            + result.stderr[-2000:]
+        )
+
+    try:
+
+        duration = float(
+            result.stdout.strip()
+        )
+
+    except Exception:
+
+        raise RuntimeError(
+            "ไม่สามารถอ่านค่าความยาววิดีโอได้"
+        )
+
+    return duration
+
+
+# =========================================================
+# WAV Validation
+# =========================================================
+
+def check_wav(wav_file: Path):
 
     try:
 
@@ -209,200 +235,66 @@ def check_wav(
     except Exception as e:
 
         raise RuntimeError(
-            f"WAV ตรวจสอบไม่ได้: {str(e)}"
+            "ตรวจสอบ WAV ไม่ได้: "
+            + str(e)
         )
 
 
 # =========================================================
-# WHISPER TRANSCRIPTION
+# Clean Whisper Output
 # =========================================================
 
-def run_whisper(
-    audio_file: Path
-):
+def clean_whisper_output(text: str):
 
-    if not os.path.exists(
-        WHISPER_BIN
-    ):
+    if not text:
 
-        raise RuntimeError(
-            "ไม่พบ Whisper binary: "
-            + WHISPER_BIN
-        )
-
-
-    if not os.path.exists(
-        WHISPER_MODEL
-    ):
-
-        raise RuntimeError(
-            "ไม่พบ Whisper model: "
-            + WHISPER_MODEL
-        )
-
-
-    whisper_cmd = [
-
-        WHISPER_BIN,
-
-        "-m",
-        WHISPER_MODEL,
-
-        "-f",
-        str(audio_file),
-
-        "-l",
-        "th",
-
-        "-t",
-        "2",
-
-        "-nt"
-    ]
-
-
-    print("=" * 60)
-
-    print("WHISPER START")
-
-    print("=" * 60)
-
-    print(
-        "COMMAND:",
-        " ".join(whisper_cmd)
-    )
-
-
-    result = subprocess.run(
-
-        whisper_cmd,
-
-        stdout=subprocess.PIPE,
-
-        stderr=subprocess.PIPE,
-
-        text=True,
-
-        timeout=300
-    )
-
-
-    print(
-        "RETURN CODE:",
-        result.returncode
-    )
-
-
-    print(
-        "STDOUT:"
-    )
-
-    print(
-        result.stdout[-10000:]
-    )
-
-
-    print(
-        "STDERR:"
-    )
-
-    print(
-        result.stderr[-10000:]
-    )
-
-
-    if result.returncode != 0:
-
-        raise RuntimeError(
-
-            "Whisper ทำงานไม่สำเร็จ\n\n"
-
-            f"Return code: "
-            f"{result.returncode}\n\n"
-
-            "STDOUT:\n"
-            f"{result.stdout[-4000:]}\n\n"
-
-            "STDERR:\n"
-            f"{result.stderr[-4000:]}"
-        )
-
-
-    raw_text = (
-        result.stdout
-        .strip()
-    )
-
-
-    if not raw_text:
-
-        return "ไม่พบข้อความเสียงพูด"
-
-
-    # -----------------------------------------------------
-    # Clean Whisper output
-    # -----------------------------------------------------
+        return ""
 
     lines = []
 
-
-    for line in raw_text.splitlines():
+    for line in text.splitlines():
 
         line = line.strip()
-
 
         if not line:
             continue
 
+        # Whisper system/log lines
+        skip_prefixes = (
+
+            "whisper_",
+
+            "main:",
+
+            "system_info:",
+
+            "ggml_",
+
+            "whisper_init",
+
+            "model_load",
+
+            "loading model",
+
+            "print_timings"
+        )
 
         if line.startswith(
-            "whisper_"
+            skip_prefixes
         ):
             continue
 
+        lines.append(
+            line
+        )
 
-        if line.startswith(
-            "main:"
-        ):
-            continue
-
-
-        if line.startswith(
-            "system_info:"
-        ):
-            continue
-
-
-        if line.startswith(
-            "ggml_"
-        ):
-            continue
-
-
-        if line.startswith(
-            "whisper_print"
-        ):
-            continue
-
-
-        lines.append(line)
-
-
-    transcript = "\n".join(
+    return "\n".join(
         lines
     ).strip()
 
 
-    if not transcript:
-
-        transcript = raw_text
-
-
-    return transcript
-
-
 # =========================================================
-# TRANSCRIBE API
+# Transcribe
 # =========================================================
 
 @app.post("/api/transcribe")
@@ -411,15 +303,18 @@ async def transcribe(
     file: UploadFile = File(...)
 ):
 
-    # -----------------------------------------------------
-    # File check
-    # -----------------------------------------------------
+    # =====================================================
+    # Check filename
+    # =====================================================
 
     if not file.filename:
 
         raise HTTPException(
+
             status_code=400,
-            detail="ไม่ได้เลือกไฟล์"
+
+            detail=
+                "ไม่ได้เลือกไฟล์"
         )
 
 
@@ -428,21 +323,34 @@ async def transcribe(
     ).suffix.lower()
 
 
+    # =====================================================
+    # Allowed files
+    # =====================================================
+
     allowed = {
 
         ".mp4",
+
         ".mov",
+
         ".m4v",
+
         ".avi",
+
         ".mkv",
+
         ".webm",
 
         ".mp3",
+
         ".wav",
+
         ".m4a",
 
         ".aac",
+
         ".flac",
+
         ".ogg"
     }
 
@@ -454,21 +362,17 @@ async def transcribe(
             status_code=400,
 
             detail=(
-                "รองรับ MP4, MOV, M4V, AVI, MKV, "
-                "WEBM, MP3, WAV, M4A, AAC, FLAC และ OGG"
+                "รองรับไฟล์ "
+                "MP4, MOV, M4V, AVI, MKV, "
+                "WEBM, MP3, WAV, M4A, "
+                "AAC, FLAC และ OGG"
             )
         )
 
 
-    if shutil.which("ffmpeg") is None:
-
-        raise HTTPException(
-
-            status_code=500,
-
-            detail="ไม่พบ FFmpeg"
-        )
-
+    # =====================================================
+    # Check Whisper
+    # =====================================================
 
     if not os.path.exists(
         WHISPER_BIN
@@ -478,7 +382,10 @@ async def transcribe(
 
             status_code=500,
 
-            detail="ไม่พบ Whisper binary"
+            detail=(
+                "ไม่พบ Whisper binary\n"
+                + WHISPER_BIN
+            )
         )
 
 
@@ -490,19 +397,62 @@ async def transcribe(
 
             status_code=500,
 
-            detail="ไม่พบ Whisper model"
+            detail=(
+                "ไม่พบ Whisper model\n"
+                + WHISPER_MODEL
+            )
         )
 
 
     # =====================================================
-    # Temporary workspace
+    # Check FFmpeg
+    # =====================================================
+
+    ffmpeg = shutil.which(
+        "ffmpeg"
+    )
+
+    if not ffmpeg:
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=
+                "ไม่พบ FFmpeg"
+        )
+
+
+    # =====================================================
+    # Check FFprobe
+    # =====================================================
+
+    ffprobe = shutil.which(
+        "ffprobe"
+    )
+
+    if not ffprobe:
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=
+                "ไม่พบ FFprobe"
+        )
+
+
+    # =====================================================
+    # Temporary Workspace
     # =====================================================
 
     try:
 
         with tempfile.TemporaryDirectory() as temp:
 
-            temp_dir = Path(temp)
+            temp_dir = Path(
+                temp
+            )
 
 
             input_file = (
@@ -517,9 +467,12 @@ async def transcribe(
             )
 
 
-            # -------------------------------------------------
-            # Save uploaded file
-            # -------------------------------------------------
+            # =================================================
+            # Save Upload
+            # =================================================
+
+            total_bytes = 0
+
 
             with open(
                 input_file,
@@ -532,34 +485,39 @@ async def transcribe(
                         1024 * 1024
                     )
 
-
                     if not chunk:
+
                         break
 
+                    output.write(
+                        chunk
+                    )
 
-                    output.write(chunk)
+                    total_bytes += len(
+                        chunk
+                    )
 
 
-            input_size = (
-                input_file.stat().st_size
-            )
-
-
-            if input_size <= 0:
+            if total_bytes <= 0:
 
                 raise HTTPException(
 
                     status_code=400,
 
-                    detail="ไฟล์ว่าง"
+                    detail=
+                        "ไฟล์ว่าง"
                 )
 
 
             print("=" * 60)
 
-            print("UPLOAD")
+            print(
+                "AI THAI DUB V2.1"
+            )
 
-            print("=" * 60)
+            print(
+                "UPLOAD COMPLETE"
+            )
 
             print(
                 "Filename:",
@@ -568,19 +526,93 @@ async def transcribe(
 
             print(
                 "Size:",
-                input_size
+                total_bytes,
+                "bytes"
             )
+
+
+            # =================================================
+            # Get Duration
+            # =================================================
+
+            try:
+
+                duration = get_duration(
+                    input_file
+                )
+
+            except Exception as e:
+
+                raise HTTPException(
+
+                    status_code=400,
+
+                    detail=
+                        "อ่านความยาวไฟล์ไม่ได้\n"
+                        + str(e)
+                )
+
+
+            print(
+                "DURATION:",
+                duration,
+                "seconds"
+            )
+
+
+            # =================================================
+            # Duration Check
+            # =================================================
+
+            if duration <= 0:
+
+                raise HTTPException(
+
+                    status_code=400,
+
+                    detail=
+                        "ไม่สามารถอ่านความยาววิดีโอได้"
+                )
+
+
+            if duration > MAX_DURATION_SECONDS:
+
+                raise HTTPException(
+
+                    status_code=400,
+
+                    detail=(
+                        "วิดีโอยาวเกินไป\n\n"
+                        f"ความยาว: "
+                        f"{round(duration, 1)} วินาที\n"
+                        f"รองรับสูงสุด: "
+                        f"{MAX_DURATION_SECONDS} วินาที\n\n"
+                        "กรุณาลองวิดีโอที่สั้นลง"
+                    )
+                )
 
 
             # =================================================
             # FFmpeg
             # =================================================
 
-            ffmpeg_cmd = [
+            print("=" * 60)
 
-                "ffmpeg",
+            print(
+                "FFMPEG START"
+            )
+
+
+            ffmpeg_command = [
+
+                ffmpeg,
 
                 "-y",
+
+                "-hide_banner",
+
+                "-loglevel",
+                "error",
 
                 "-i",
                 str(input_file),
@@ -600,16 +632,9 @@ async def transcribe(
             ]
 
 
-            print("=" * 60)
-
-            print("FFMPEG START")
-
-            print("=" * 60)
-
-
             ffmpeg_result = subprocess.run(
 
-                ffmpeg_cmd,
+                ffmpeg_command,
 
                 stdout=subprocess.PIPE,
 
@@ -617,12 +642,12 @@ async def transcribe(
 
                 text=True,
 
-                timeout=180
+                timeout=90
             )
 
 
             print(
-                "FFMPEG RETURN CODE:",
+                "FFMPEG RETURN:",
                 ffmpeg_result.returncode
             )
 
@@ -634,9 +659,7 @@ async def transcribe(
                     status_code=500,
 
                     detail=(
-
-                        "FFmpeg ไม่สามารถแปลงเสียงได้\n\n"
-
+                        "FFmpeg ไม่สามารถแยกเสียงได้\n\n"
                         + ffmpeg_result.stderr[-3000:]
                     )
                 )
@@ -648,14 +671,24 @@ async def transcribe(
 
                     status_code=500,
 
-                    detail=(
+                    detail=
                         "FFmpeg ไม่ได้สร้าง audio.wav"
-                    )
                 )
 
 
+            audio_size = (
+                audio_file.stat().st_size
+            )
+
+
+            print(
+                "AUDIO SIZE:",
+                audio_size
+            )
+
+
             # =================================================
-            # WAV validation
+            # WAV Check
             # =================================================
 
             wav_info = check_wav(
@@ -675,7 +708,8 @@ async def transcribe(
 
                     status_code=500,
 
-                    detail="WAV ต้องเป็น Mono"
+                    detail=
+                        "WAV ต้องเป็น Mono"
                 )
 
 
@@ -685,7 +719,8 @@ async def transcribe(
 
                     status_code=500,
 
-                    detail="WAV ต้องเป็น 16000 Hz"
+                    detail=
+                        "WAV ต้องเป็น 16000 Hz"
                 )
 
 
@@ -695,43 +730,204 @@ async def transcribe(
 
                     status_code=500,
 
-                    detail="WAV ต้องเป็น 16-bit"
+                    detail=
+                        "WAV ต้องเป็น 16-bit"
                 )
 
 
             # =================================================
-            # WHISPER
+            # Whisper
             # =================================================
 
-            transcript = run_whisper(
-                audio_file
+            print("=" * 60)
+
+            print(
+                "WHISPER START"
             )
 
 
-            duration_seconds = round(
+            whisper_command = [
 
-                wav_info["frames"]
-                /
-                wav_info["sample_rate"],
+                WHISPER_BIN,
 
-                2
+                "-m",
+                WHISPER_MODEL,
+
+                "-f",
+                str(audio_file),
+
+                "-l",
+                "th",
+
+                "-t",
+                "2",
+
+                "-nt",
+
+                "-np"
+            ]
+
+
+            print(
+                "WHISPER COMMAND:"
+            )
+
+            print(
+                " ".join(
+                    whisper_command
+                )
             )
 
 
+            # -------------------------------------------------
+            # Timeout
+            #
+            # เผื่อเวลาให้ Whisper มากกว่าความยาววิดีโอ
+            # -------------------------------------------------
+
+            whisper_timeout = max(
+
+                60,
+
+                min(
+
+                    240,
+
+                    int(
+                        duration * 4
+                    ) + 30
+                )
+            )
+
+
+            print(
+                "WHISPER TIMEOUT:",
+                whisper_timeout,
+                "seconds"
+            )
+
+
+            try:
+
+                whisper_result = subprocess.run(
+
+                    whisper_command,
+
+                    stdout=subprocess.PIPE,
+
+                    stderr=subprocess.PIPE,
+
+                    text=True,
+
+                    timeout=whisper_timeout
+                )
+
+            except subprocess.TimeoutExpired:
+
+                raise HTTPException(
+
+                    status_code=504,
+
+                    detail=(
+                        "Whisper ใช้เวลานานเกินไป\n\n"
+                        f"วิดีโอ: "
+                        f"{round(duration, 1)} วินาที\n"
+                        f"เวลาประมวลผลสูงสุด: "
+                        f"{whisper_timeout} วินาที\n\n"
+                        "กรุณาลองวิดีโอที่สั้นลง"
+                    )
+                )
+
+
+            # =================================================
+            # Whisper Result
+            # =================================================
+
             print("=" * 60)
 
-            print("TRANSCRIPTION COMPLETE")
+            print(
+                "WHISPER RETURN:",
+                whisper_result.returncode
+            )
+
+
+            print(
+                "WHISPER STDOUT:"
+            )
+
+            print(
+                whisper_result.stdout[-10000:]
+            )
+
+
+            print(
+                "WHISPER STDERR:"
+            )
+
+            print(
+                whisper_result.stderr[-10000:]
+            )
+
+
+            # =================================================
+            # Whisper Error
+            # =================================================
+
+            if whisper_result.returncode != 0:
+
+                error_text = (
+                    whisper_result.stderr.strip()
+                    or
+                    whisper_result.stdout.strip()
+                    or
+                    "ไม่ทราบสาเหตุ"
+                )
+
+
+                raise HTTPException(
+
+                    status_code=500,
+
+                    detail=(
+                        "Whisper ทำงานไม่สำเร็จ\n\n"
+                        f"Return code: "
+                        f"{whisper_result.returncode}\n\n"
+                        f"{error_text[-4000:]}"
+                    )
+                )
+
+
+            # =================================================
+            # Clean Transcript
+            # =================================================
+
+            transcript = clean_whisper_output(
+
+                whisper_result.stdout
+            )
+
+
+            if not transcript:
+
+                transcript = (
+                    "ไม่พบข้อความเสียงพูด"
+                )
+
+
+            # =================================================
+            # Final Result
+            # =================================================
 
             print("=" * 60)
+
+            print(
+                "TRANSCRIPTION COMPLETE"
+            )
 
             print(
                 transcript
             )
 
-
-            # =================================================
-            # Response
-            # =================================================
 
             return {
 
@@ -739,10 +935,16 @@ async def transcribe(
                     "ok",
 
                 "version":
-                    "2.0",
+                    "2.1",
 
                 "filename":
                     file.filename,
+
+                "duration_seconds":
+                    round(
+                        duration,
+                        2
+                    ),
 
                 "transcript":
                     transcript,
@@ -750,39 +952,67 @@ async def transcribe(
                 "audio": {
 
                     "sample_rate":
-                        wav_info["sample_rate"],
+                        wav_info[
+                            "sample_rate"
+                        ],
 
                     "channels":
-                        wav_info["channels"],
+                        wav_info[
+                            "channels"
+                        ],
 
                     "duration_seconds":
-                        duration_seconds
+                        round(
+                            wav_info["frames"]
+                            /
+                            wav_info["sample_rate"],
+                            2
+                        )
                 }
             }
 
+
+    # =====================================================
+    # Timeout
+    # =====================================================
+
+    except subprocess.TimeoutExpired:
+
+        raise HTTPException(
+
+            status_code=504,
+
+            detail=(
+                "การประมวลผลใช้เวลานานเกินไป\n\n"
+                "กรุณาลองวิดีโอที่สั้นลง"
+            )
+        )
+
+
+    # =====================================================
+    # HTTP Error
+    # =====================================================
 
     except HTTPException:
 
         raise
 
 
-    except subprocess.TimeoutExpired:
-
-        raise HTTPException(
-
-            status_code=500,
-
-            detail=(
-                "การประมวลผลใช้เวลานานเกินไป "
-                "กรุณาลองวิดีโอที่สั้นลง"
-            )
-        )
-
+    # =====================================================
+    # Unexpected Error
+    # =====================================================
 
     except Exception as e:
 
         print(
-            "UNEXPECTED ERROR:",
+            "=" * 60
+        )
+
+        print(
+            "UNEXPECTED ERROR"
+        )
+
+        print(
             repr(e)
         )
 
@@ -792,278 +1022,7 @@ async def transcribe(
             status_code=500,
 
             detail=(
-                "เกิดข้อผิดพลาด:\n"
+                "เกิดข้อผิดพลาดในระบบ\n\n"
                 + repr(e)
             )
         )
-
-
-# =========================================================
-# OPENAI TRANSLATION MODEL
-# =========================================================
-
-class TranslateRequest(BaseModel):
-
-    text: str
-
-    target_language: str = "Thai"
-
-
-# =========================================================
-# TRANSLATE WITH OPENAI
-# =========================================================
-
-def translate_with_openai(
-    text: str,
-    target_language: str = "Thai"
-):
-
-    if not OPENAI_API_KEY:
-
-        raise RuntimeError(
-            "ยังไม่ได้ตั้งค่า OPENAI_API_KEY "
-            "ใน Render Environment Variables"
-        )
-
-
-    if not text.strip():
-
-        return ""
-
-
-    url = (
-        "https://api.openai.com/v1/chat/completions"
-    )
-
-
-    payload = {
-
-        "model":
-            OPENAI_MODEL,
-
-        "messages": [
-
-            {
-                "role": "system",
-
-                "content": (
-                    "You are a professional video "
-                    "translation assistant. "
-                    "Translate the provided transcript "
-                    "into natural Thai. "
-                    "Preserve the original meaning. "
-                    "Do not add explanations. "
-                    "Return only the translated text."
-                )
-            },
-
-            {
-
-                "role": "user",
-
-                "content": (
-                    f"Translate this transcript "
-                    f"to {target_language}:\n\n"
-                    f"{text}"
-                )
-            }
-        ],
-
-        "temperature":
-            0.2
-    }
-
-
-    data = json.dumps(
-        payload
-    ).encode(
-        "utf-8"
-    )
-
-
-    request = urllib.request.Request(
-
-        url,
-
-        data=data,
-
-        method="POST",
-
-        headers={
-
-            "Content-Type":
-                "application/json",
-
-            "Authorization":
-                "Bearer "
-                + OPENAI_API_KEY
-        }
-    )
-
-
-    try:
-
-        with urllib.request.urlopen(
-            request,
-            timeout=120
-        ) as response:
-
-            response_data = json.loads(
-                response.read().decode(
-                    "utf-8"
-                )
-            )
-
-
-    except urllib.error.HTTPError as e:
-
-        error_body = ""
-
-        try:
-
-            error_body = (
-                e.read()
-                .decode("utf-8")
-            )
-
-        except Exception:
-            pass
-
-
-        raise RuntimeError(
-
-            "OpenAI API Error "
-            f"{e.code}: "
-            f"{error_body[-3000:]}"
-        )
-
-
-    except Exception as e:
-
-        raise RuntimeError(
-            f"เชื่อมต่อ OpenAI ไม่สำเร็จ: {str(e)}"
-        )
-
-
-    try:
-
-        translated = (
-
-            response_data
-            ["choices"]
-            [0]
-            ["message"]
-            ["content"]
-            .strip()
-        )
-
-
-    except Exception:
-
-        raise RuntimeError(
-
-            "รูปแบบข้อมูลจาก OpenAI "
-            "ไม่ถูกต้อง"
-        )
-
-
-    return translated
-
-
-# =========================================================
-# TRANSLATE API
-# =========================================================
-
-@app.post("/api/translate")
-async def translate(
-    request: TranslateRequest
-):
-
-    text = request.text.strip()
-
-
-    if not text:
-
-        raise HTTPException(
-
-            status_code=400,
-
-            detail="ไม่มีข้อความสำหรับแปล"
-        )
-
-
-    try:
-
-        translated = translate_with_openai(
-
-            text,
-
-            request.target_language
-        )
-
-
-        return {
-
-            "status":
-                "ok",
-
-            "version":
-                "2.0",
-
-            "source_text":
-                text,
-
-            "target_language":
-                request.target_language,
-
-            "translated_text":
-                translated
-        }
-
-
-    except Exception as e:
-
-        print(
-            "TRANSLATION ERROR:",
-            repr(e)
-        )
-
-
-        raise HTTPException(
-
-            status_code=500,
-
-            detail=str(e)
-        )
-
-
-# =========================================================
-# ROOT TEST
-# =========================================================
-
-@app.get("/api")
-def api_info():
-
-    return {
-
-        "status":
-            "ok",
-
-        "service":
-            "AI Thai Dub V2.0",
-
-        "endpoints": {
-
-            "home":
-                "/",
-
-            "health":
-                "/api/health",
-
-            "transcribe":
-                "/api/transcribe",
-
-            "translate":
-                "/api/translate"
-        }
-    }
