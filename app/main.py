@@ -2,37 +2,34 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+
 import os
 import subprocess
 import tempfile
+import shutil
+import wave
 
 
-# ==========================================
-# PATH
-# ==========================================
+# =========================================================
+# AI Thai Dub V1.8
+# =========================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 WHISPER_BIN = "/opt/whisper.cpp/build/bin/whisper-cli"
-WHISPER_MODEL = "/opt/whisper.cpp/models/ggml-tiny-q5_1.bin"
-
-
-# ==========================================
-# APP
-# ==========================================
+WHISPER_MODEL = "/opt/whisper.cpp/models/ggml-tiny.bin"
 
 app = FastAPI(
-    title="AI Thai Dub V1.7.2"
+    title="AI Thai Dub V1.8"
 )
 
 
-# ==========================================
-# STATIC WEBSITE
-# ==========================================
+# =========================================================
+# Static website
+# =========================================================
 
 if STATIC_DIR.exists():
-
     app.mount(
         "/static",
         StaticFiles(directory=STATIC_DIR),
@@ -40,69 +37,90 @@ if STATIC_DIR.exists():
     )
 
 
-# ==========================================
-# HOME
-# ==========================================
-
 @app.get("/")
 def home():
 
     index_file = STATIC_DIR / "index.html"
 
     if index_file.exists():
-
         return FileResponse(index_file)
 
     return {
         "status": "ok",
-        "service": "AI Thai Dub V1.7.2"
+        "service": "AI Thai Dub V1.8"
     }
 
 
-# ==========================================
-# HEALTH CHECK
-# ==========================================
+# =========================================================
+# Health Check
+# =========================================================
 
 @app.get("/api/health")
 def health():
 
     return {
         "status": "ok",
-        "service": "AI Thai Dub V1.7.2",
-        "whisper_exists": os.path.exists(WHISPER_BIN),
-        "model_exists": os.path.exists(WHISPER_MODEL),
-        "ffmpeg_exists": command_exists("ffmpeg")
+        "service": "AI Thai Dub V1.8",
+
+        "whisper_exists": os.path.exists(
+            WHISPER_BIN
+        ),
+
+        "model_exists": os.path.exists(
+            WHISPER_MODEL
+        ),
+
+        "ffmpeg_exists": shutil.which(
+            "ffmpeg"
+        ) is not None
     }
 
 
-def command_exists(command):
+# =========================================================
+# Check WAV
+# =========================================================
+
+def check_wav(wav_file):
 
     try:
 
-        result = subprocess.run(
-            ["which", command],
-            capture_output=True,
-            text=True
+        with wave.open(
+            str(wav_file),
+            "rb"
+        ) as wav:
+
+            channels = wav.getnchannels()
+            sample_width = wav.getsampwidth()
+            sample_rate = wav.getframerate()
+            frames = wav.getnframes()
+
+        return {
+            "channels": channels,
+            "sample_width": sample_width,
+            "sample_rate": sample_rate,
+            "frames": frames
+        }
+
+    except Exception as e:
+
+        raise RuntimeError(
+            f"WAV ตรวจสอบไม่ได้: {str(e)}"
         )
 
-        return result.returncode == 0
 
-    except Exception:
-
-        return False
-
-
-# ==========================================
-# TRANSCRIBE
-# ==========================================
+# =========================================================
+# Transcribe
+# =========================================================
 
 @app.post("/api/transcribe")
 @app.post("/api/upload")
-async def transcribe(file: UploadFile = File(...)):
+async def transcribe(
+    file: UploadFile = File(...)
+):
 
-    # --------------------------------------
-    # Check filename
-    # --------------------------------------
+    # -----------------------------------------------------
+    # File check
+    # -----------------------------------------------------
 
     if not file.filename:
 
@@ -112,24 +130,18 @@ async def transcribe(file: UploadFile = File(...)):
         )
 
 
-    # --------------------------------------
-    # Allowed file types
-    # --------------------------------------
-
     suffix = Path(
         file.filename
     ).suffix.lower()
 
 
     allowed = {
-
         ".mp4",
         ".mov",
         ".m4v",
         ".avi",
         ".mkv",
         ".webm",
-
         ".mp3",
         ".wav",
         ".m4a"
@@ -141,51 +153,49 @@ async def transcribe(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=400,
             detail=(
-                "รองรับไฟล์ MP4, MOV, M4V, AVI, "
-                "MKV, WEBM, MP3, WAV และ M4A"
+                "รองรับ MP4, MOV, M4V, AVI, MKV, "
+                "WEBM, MP3, WAV และ M4A"
             )
         )
 
 
-    # --------------------------------------
-    # Check Whisper
-    # --------------------------------------
+    # -----------------------------------------------------
+    # Whisper check
+    # -----------------------------------------------------
 
     if not os.path.exists(WHISPER_BIN):
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                "ไม่พบ Whisper binary: "
-                + WHISPER_BIN
-            )
+            detail="ไม่พบ Whisper binary"
         )
 
-
-    # --------------------------------------
-    # Check model
-    # --------------------------------------
 
     if not os.path.exists(WHISPER_MODEL):
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                "ไม่พบ Whisper model: "
-                + WHISPER_MODEL
-            )
+            detail="ไม่พบ Whisper model"
         )
 
 
-    # ======================================
-    # TEMPORARY DIRECTORY
-    # ======================================
+    if shutil.which("ffmpeg") is None:
+
+        raise HTTPException(
+            status_code=500,
+            detail="ไม่พบ FFmpeg"
+        )
+
+
+    # =====================================================
+    # Temporary workspace
+    # =====================================================
 
     try:
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp:
 
-            temp_dir = Path(temp_dir)
+            temp_dir = Path(temp)
 
             input_file = (
                 temp_dir / f"input{suffix}"
@@ -196,36 +206,14 @@ async def transcribe(file: UploadFile = File(...)):
             )
 
 
-            # ==================================
-            # SAVE UPLOADED FILE
-            # ==================================
-
-            print(
-                "====================================",
-                flush=True
-            )
-
-            print(
-                "UPLOAD START",
-                flush=True
-            )
-
-            print(
-                "Filename:",
-                file.filename,
-                flush=True
-            )
-
-            print(
-                "====================================",
-                flush=True
-            )
-
+            # -------------------------------------------------
+            # Save upload
+            # -------------------------------------------------
 
             with open(
                 input_file,
                 "wb"
-            ) as f:
+            ) as output:
 
                 while True:
 
@@ -236,48 +224,38 @@ async def transcribe(file: UploadFile = File(...)):
                     if not chunk:
                         break
 
-                    f.write(chunk)
+                    output.write(chunk)
 
 
-            print(
-                "Input exists:",
-                input_file.exists(),
-                flush=True
-            )
+            input_size = input_file.stat().st_size
 
 
-            if input_file.exists():
+            if input_size <= 0:
 
-                print(
-                    "Input size:",
-                    input_file.stat().st_size,
-                    "bytes",
-                    flush=True
+                raise HTTPException(
+                    status_code=400,
+                    detail="ไฟล์ว่าง"
                 )
 
 
-            # ==================================
-            # FFMPEG
-            # ==================================
+            print("=" * 60)
+            print("UPLOAD START")
+            print("=" * 60)
 
             print(
-                "====================================",
-                flush=True
+                f"Filename: {file.filename}"
             )
 
             print(
-                "FFMPEG START",
-                flush=True
+                f"Input size: {input_size} bytes"
             )
 
-            print(
-                "====================================",
-                flush=True
-            )
 
+            # =================================================
+            # FFmpeg
+            # =================================================
 
             ffmpeg_cmd = [
-
                 "ffmpeg",
 
                 "-y",
@@ -300,108 +278,150 @@ async def transcribe(file: UploadFile = File(...)):
             ]
 
 
-            print(
-                "FFMPEG COMMAND:",
-                " ".join(ffmpeg_cmd),
-                flush=True
-            )
+            print("=" * 60)
+            print("FFMPEG START")
+            print("=" * 60)
 
 
             ffmpeg_result = subprocess.run(
-
                 ffmpeg_cmd,
 
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
 
-                text=True
+                text=True,
+
+                timeout=180
             )
 
 
             print(
                 "FFMPEG RETURN CODE:",
-                ffmpeg_result.returncode,
-                flush=True
+                ffmpeg_result.returncode
             )
 
-
-            print(
-                "FFMPEG STDERR:",
-                ffmpeg_result.stderr[-3000:],
-                flush=True
-            )
-
-
-            print(
-                "Audio exists:",
-                audio_file.exists(),
-                flush=True
-            )
-
-
-            if audio_file.exists():
-
-                print(
-                    "Audio size:",
-                    audio_file.stat().st_size,
-                    "bytes",
-                    flush=True
-                )
-
-
-            # ----------------------------------
-            # FFMPEG ERROR
-            # ----------------------------------
 
             if ffmpeg_result.returncode != 0:
 
+                print(
+                    "FFMPEG ERROR:"
+                )
+
+                print(
+                    ffmpeg_result.stderr[-5000:]
+                )
+
                 raise HTTPException(
-
                     status_code=500,
-
                     detail=(
-                        "ไม่สามารถแปลงเสียงได้\n\n"
-                        "FFmpeg error:\n"
+                        "FFmpeg ไม่สามารถแปลงเสียงได้\n\n"
                         + ffmpeg_result.stderr[-3000:]
                     )
                 )
 
 
+            # -------------------------------------------------
+            # Audio exists
+            # -------------------------------------------------
+
             if not audio_file.exists():
 
                 raise HTTPException(
-
                     status_code=500,
-
-                    detail=(
-                        "FFmpeg ไม่สร้างไฟล์ audio.wav"
-                    )
+                    detail="FFmpeg ไม่ได้สร้าง audio.wav"
                 )
 
 
-            # ==================================
+            audio_size = (
+                audio_file.stat().st_size
+            )
+
+
+            print(
+                "AUDIO EXISTS:",
+                True
+            )
+
+            print(
+                "AUDIO SIZE:",
+                audio_size
+            )
+
+
+            # =================================================
+            # WAV validation
+            # =================================================
+
+            wav_info = check_wav(
+                audio_file
+            )
+
+
+            print(
+                "WAV INFO:",
+                wav_info
+            )
+
+
+            if wav_info["channels"] != 1:
+
+                raise HTTPException(
+                    status_code=500,
+                    detail="WAV ต้องเป็น Mono"
+                )
+
+
+            if wav_info["sample_rate"] != 16000:
+
+                raise HTTPException(
+                    status_code=500,
+                    detail="WAV ต้องเป็น 16000 Hz"
+                )
+
+
+            if wav_info["sample_width"] != 2:
+
+                raise HTTPException(
+                    status_code=500,
+                    detail="WAV ต้องเป็น 16-bit"
+                )
+
+
+            # =================================================
             # WHISPER
-            # ==================================
+            # =================================================
+
+            print("=" * 60)
+            print("WHISPER START")
+            print("=" * 60)
+
 
             print(
-                "====================================",
-                flush=True
+                "WHISPER BIN:",
+                WHISPER_BIN
             )
 
             print(
-                "WHISPER START",
-                flush=True
+                "WHISPER MODEL:",
+                WHISPER_MODEL
             )
 
             print(
-                "====================================",
-                flush=True
+                "WHISPER BIN EXISTS:",
+                os.path.exists(WHISPER_BIN)
+            )
+
+            print(
+                "WHISPER MODEL EXISTS:",
+                os.path.exists(WHISPER_MODEL)
             )
 
 
-            # ----------------------------------
+            # -------------------------------------------------
             # IMPORTANT
-            # Low-resource configuration
-            # ----------------------------------
+            #
+            # ใช้ option ที่เรียบง่ายที่สุด
+            # -------------------------------------------------
 
             whisper_cmd = [
 
@@ -414,259 +434,221 @@ async def transcribe(file: UploadFile = File(...)):
                 str(audio_file),
 
                 "-l",
-                "auto",
-
-                "-nt",
-
-                "-bo",
-                "1",
-
-                "-bs",
-                "1",
+                "th",
 
                 "-t",
-                "1"
+                "2",
+
+                "-nt"
             ]
 
 
             print(
-                "WHISPER BIN:",
-                WHISPER_BIN,
-                flush=True
+                "WHISPER COMMAND:"
             )
-
 
             print(
-                "WHISPER MODEL:",
-                WHISPER_MODEL,
-                flush=True
+                " ".join(whisper_cmd)
             )
 
 
-            print(
-                "WHISPER BIN EXISTS:",
-                os.path.exists(
-                    WHISPER_BIN
-                ),
-                flush=True
-            )
-
-
-            print(
-                "WHISPER MODEL EXISTS:",
-                os.path.exists(
-                    WHISPER_MODEL
-                ),
-                flush=True
-            )
-
-
-            print(
-                "AUDIO EXISTS:",
-                audio_file.exists(),
-                flush=True
-            )
-
-
-            print(
-                "WHISPER COMMAND:",
-                " ".join(whisper_cmd),
-                flush=True
-            )
-
-
-            # ==================================
-            # RUN WHISPER
-            # ==================================
+            # =================================================
+            # Run Whisper
+            # =================================================
 
             whisper_result = subprocess.run(
 
                 whisper_cmd,
 
-                capture_output=True,
+                stdout=subprocess.PIPE,
 
-                text=True
+                stderr=subprocess.PIPE,
+
+                text=True,
+
+                timeout=300
             )
 
 
-            # ==================================
-            # DEBUG
-            # ==================================
-
-            print(
-                "====================================",
-                flush=True
-            )
-
-            print(
-                "WHISPER RESULT",
-                flush=True
-            )
-
-            print(
-                "====================================",
-                flush=True
-            )
+            print("=" * 60)
+            print("WHISPER RESULT")
+            print("=" * 60)
 
 
             print(
                 "RETURN CODE:",
-                whisper_result.returncode,
-                flush=True
+                whisper_result.returncode
             )
 
 
             print(
-                "STDOUT:",
-                whisper_result.stdout[-5000:],
-                flush=True
+                "STDOUT:"
+            )
+
+            print(
+                whisper_result.stdout[-10000:]
             )
 
 
             print(
-                "STDERR:",
-                whisper_result.stderr[-5000:],
-                flush=True
+                "STDERR:"
             )
-
 
             print(
-                "====================================",
-                flush=True
+                whisper_result.stderr[-10000:]
             )
 
 
-            # ==================================
-            # WHISPER ERROR
-            # ==================================
+            # =================================================
+            # Whisper failed
+            # =================================================
 
             if whisper_result.returncode != 0:
 
-                stdout_debug = (
-                    whisper_result.stdout[-3000:]
-                    if whisper_result.stdout
-                    else "(empty)"
-                )
-
-
-                stderr_debug = (
-                    whisper_result.stderr[-5000:]
-                    if whisper_result.stderr
-                    else "(empty)"
+                error_message = (
+                    "Whisper ทำงานไม่สำเร็จ\n\n"
+                    f"Return code: "
+                    f"{whisper_result.returncode}\n\n"
+                    "STDOUT:\n"
+                    f"{whisper_result.stdout[-4000:]}\n\n"
+                    "STDERR:\n"
+                    f"{whisper_result.stderr[-4000:]}"
                 )
 
 
                 raise HTTPException(
-
                     status_code=500,
-
-                    detail=(
-
-                        "Whisper transcription failed\n\n"
-
-                        "Return code: "
-                        f"{whisper_result.returncode}\n\n"
-
-                        "STDOUT:\n"
-                        f"{stdout_debug}\n\n"
-
-                        "STDERR:\n"
-                        f"{stderr_debug}"
-                    )
+                    detail=error_message
                 )
 
 
-            # ==================================
-            # TRANSCRIPT
-            # ==================================
+            # =================================================
+            # Get transcript
+            # =================================================
 
             transcript = (
-                whisper_result.stdout.strip()
+                whisper_result.stdout
+                .strip()
             )
 
 
             if not transcript:
 
                 transcript = (
-                    "ไม่สามารถตรวจพบเสียงพูดในไฟล์ได้"
+                    "ไม่พบข้อความเสียงพูด"
                 )
 
 
-            # ==================================
-            # SUCCESS
-            # ==================================
+            # =================================================
+            # Remove Whisper log lines
+            # =================================================
+
+            lines = []
+
+            for line in transcript.splitlines():
+
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                # ข้ามบรรทัด system/log
+                if line.startswith("whisper_"):
+                    continue
+
+                if line.startswith("main:"):
+                    continue
+
+                if line.startswith("system_info:"):
+                    continue
+
+                if line.startswith("ggml_"):
+                    continue
+
+                lines.append(line)
+
+
+            clean_transcript = "\n".join(
+                lines
+            ).strip()
+
+
+            if not clean_transcript:
+
+                clean_transcript = transcript
+
+
+            print("=" * 60)
+            print("TRANSCRIPTION COMPLETE")
+            print("=" * 60)
 
             print(
-                "====================================",
-                flush=True
+                clean_transcript
             )
 
-            print(
-                "TRANSCRIPTION SUCCESS",
-                flush=True
-            )
 
-            print(
-                "Transcript:",
-                transcript,
-                flush=True
-            )
-
-            print(
-                "====================================",
-                flush=True
-            )
-
+            # =================================================
+            # Response
+            # =================================================
 
             return {
 
                 "status": "ok",
 
+                "version": "1.8",
+
                 "filename": file.filename,
 
-                "transcript": transcript
+                "transcript":
+                    clean_transcript,
+
+                "audio": {
+                    "sample_rate":
+                        wav_info["sample_rate"],
+
+                    "channels":
+                        wav_info["channels"],
+
+                    "duration_seconds":
+                        round(
+                            wav_info["frames"]
+                            / wav_info["sample_rate"],
+                            2
+                        )
+                }
             }
 
 
-    # ======================================
-    # HTTP ERROR
-    # ======================================
-
     except HTTPException:
-
         raise
 
 
-    # ======================================
-    # UNEXPECTED ERROR
-    # ======================================
-
-    except Exception as e:
-
-        print(
-            "====================================",
-            flush=True
-        )
-
-        print(
-            "UNEXPECTED ERROR",
-            flush=True
-        )
-
-        print(
-            str(e),
-            flush=True
-        )
-
-        print(
-            "====================================",
-            flush=True
-        )
-
+    except subprocess.TimeoutExpired:
 
         raise HTTPException(
 
             status_code=500,
 
-            detail=f"เกิดข้อผิดพลาด: {str(e)}"
+            detail=(
+                "การประมวลผลใช้เวลานานเกินไป "
+                "กรุณาลองวิดีโอที่สั้นลง"
+            )
+        )
+
+
+    except Exception as e:
+
+        print(
+            "UNEXPECTED ERROR:",
+            repr(e)
+        )
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=(
+                "เกิดข้อผิดพลาด:\n"
+                + repr(e)
+            )
         )
