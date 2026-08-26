@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Thai Dub V1.5</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                   "Segoe UI", sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      margin: auto;
+      padding: 24px 18px 40px;
+    }
+
+    .logo {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 800;
+      margin-top: 20px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #777;
+      margin: 8px 0 28px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.07);
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 21px;
+    }
+
+    .upload {
+      border: 2px dashed #bbb;
+      border-radius: 16px;
+      padding: 30px 15px;
+      text-align: center;
+      background: #fafafa;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 15px;
+      margin-top: 15px;
+      font-size: 17px;
+      font-weight: 700;
+      background: #007aff;
+      color: white;
+    }
+
+    button:disabled {
+      background: #aaa;
+    }
+
+    .status {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #f1f1f1;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .footer {
+      text-align: center;
+      color: #888;
+      font-size: 13px;
+      margin-top: 25px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="logo">
+    AI Thai Dub
+  </div>
+
+  <div class="subtitle">
+    V1.5 — AI แปลและพากย์ภาษาไทย
+  </div>
+
+  <div class="card">
+
+    <h2>🎬 อัปโหลดไฟล์</h2>
+
+    <div class="upload">
+
+      <div>
+        เลือกไฟล์เสียงหรือวิดีโอ
+      </div>
+
+      <input
+        type="file"
+        id="fileInput"
+        accept="audio/*,video/*"
+      >
+
+    </div>
+
+    <button id="uploadBtn">
+      อัปโหลดไฟล์
+    </button>
+
+    <div
+      id="status"
+      class="status"
+    >
+      พร้อมใช้งาน
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <h2>🇹🇭 ขั้นตอนการทำงาน</h2>
+
+    <p>1. อัปโหลดเสียงหรือวิดีโอ</p>
+    <p>2. AI ถอดเสียง</p>
+    <p>3. แปลเป็นภาษาไทย</p>
+    <p>4. เตรียมเสียงพากย์ภาษาไทย</p>
+
+  </div>
+
+  <div class="footer">
+    AI Thai Dub V1.5
+  </div>
+
+</div>
+
+<script>
+
+const fileInput = document.getElementById("fileInput");
+const uploadBtn = document.getElementById("uploadBtn");
+const statusBox = document.getElementById("status");
+
+uploadBtn.addEventListener("click", async () => {
+
+  const file = fileInput.files[0];
+
+  if (!file) {
+    statusBox.textContent = "กรุณาเลือกไฟล์ก่อน";
+    return;
+  }
+
+  uploadBtn.disabled = true;
+  statusBox.textContent = "กำลังอัปโหลด...";
+
+  try {
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "เกิดข้อผิดพลาด");
+    }
+
+    statusBox.textContent =
+      "อัปโหลดสำเร็จ ✅\n\n" +
+      "ไฟล์: " + data.filename + "\n" +
+      "ขนาด: " + data.size + " bytes";
+
+  } catch (error) {
+
+    statusBox.textContent =
+      "เกิดข้อผิดพลาด ❌\n\n" +
+      error.message;
+
+  } finally {
+
+    uploadBtn.disabled = false;
+
+  }
+
+});
+
+</script>
+
+</body>
+</html>
